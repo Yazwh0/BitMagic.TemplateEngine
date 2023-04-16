@@ -1,4 +1,4 @@
-﻿using BigMagic.Macro;
+﻿using BigMagic.TemplateEngine.Compiler;
 using BitMagic.TemplateEngine.X16;
 
 var engine = CsasmEngine.CreateEngine();

@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace BigMagic.Macro;
+namespace BigMagic.TemplateEngine.Compiler;
 
 public class CompilationException : Exception {
     public List<Diagnostic> Errors { get; set; } = new List<Diagnostic>();

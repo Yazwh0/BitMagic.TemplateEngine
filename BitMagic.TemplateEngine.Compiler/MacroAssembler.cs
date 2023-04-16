@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using BitMagic.TemplateEngine;
 using BitMagic.TemplateEngine.Objects;
 
-namespace BigMagic.Macro;
+namespace BigMagic.TemplateEngine.Compiler;
 
 public static class MacroAssembler
 {
@@ -164,7 +164,7 @@ public static class MacroAssembler
         CSharpCompilation compilation = CSharpCompilation.Create(
             contentAssemblyName,
             new[] { syntaxTree },
-            assemblies.Select(ass => { return MetadataReference.CreateFromFile(ass.Location); }),
+            assemblies.Select(ass => MetadataReference.CreateFromFile(ass.Location) ),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         MemoryStream memoryStream = new MemoryStream();
