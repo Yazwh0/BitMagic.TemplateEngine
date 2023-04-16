@@ -1,0 +1,54 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33403.182
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BMTE", "BMTE\BMTE.csproj", "{AAC6E544-E854-432C-8F54-9430C7B79FED}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_SolutionItems", "_SolutionItems", "{E4D16BC0-2AC0-4229-A8A7-B8AAA6B8C9A8}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BitMagic.Macro", "BitMagic.Macro\BitMagic.Macro.csproj", "{F2546DCD-7C1C-44A9-819D-D89C7854A2B0}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BitMagic.TemplateEngine.X16", "BitMagic.TemplateEngine.X16\BitMagic.TemplateEngine.X16.csproj", "{D8896966-27B8-48FF-98CE-FE600DFA2008}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BitMagic.TemplateEngine", "Bitmagic.TemplateEngine\BitMagic.TemplateEngine.csproj", "{653748BF-E03E-417D-8548-80D272F021E4}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BitMagic.TemplageEngine.Objects", "BitMagic.TemplateEngine.Objects\BitMagic.TemplageEngine.Objects.csproj", "{87798DBC-C6E3-42DE-A666-34A49820CD2F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AAC6E544-E854-432C-8F54-9430C7B79FED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AAC6E544-E854-432C-8F54-9430C7B79FED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AAC6E544-E854-432C-8F54-9430C7B79FED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AAC6E544-E854-432C-8F54-9430C7B79FED}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F2546DCD-7C1C-44A9-819D-D89C7854A2B0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F2546DCD-7C1C-44A9-819D-D89C7854A2B0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F2546DCD-7C1C-44A9-819D-D89C7854A2B0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F2546DCD-7C1C-44A9-819D-D89C7854A2B0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D8896966-27B8-48FF-98CE-FE600DFA2008}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D8896966-27B8-48FF-98CE-FE600DFA2008}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D8896966-27B8-48FF-98CE-FE600DFA2008}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D8896966-27B8-48FF-98CE-FE600DFA2008}.Release|Any CPU.Build.0 = Release|Any CPU
+		{653748BF-E03E-417D-8548-80D272F021E4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{653748BF-E03E-417D-8548-80D272F021E4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{653748BF-E03E-417D-8548-80D272F021E4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{653748BF-E03E-417D-8548-80D272F021E4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{87798DBC-C6E3-42DE-A666-34A49820CD2F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{87798DBC-C6E3-42DE-A666-34A49820CD2F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{87798DBC-C6E3-42DE-A666-34A49820CD2F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{87798DBC-C6E3-42DE-A666-34A49820CD2F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7A92F581-0591-48AD-88C4-C0D58EE6D64F}
+	EndGlobalSection
+EndGlobal

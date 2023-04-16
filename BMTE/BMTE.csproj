@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BitMagic.Macro\BitMagic.Macro.csproj" />
+    <ProjectReference Include="..\BitMagic.TemplateEngine.X16\BitMagic.TemplateEngine.X16.csproj" />
+    <ProjectReference Include="..\Bitmagic.TemplateEngine\BitMagic.TemplateEngine.csproj" />
+  </ItemGroup>
+
+</Project>
