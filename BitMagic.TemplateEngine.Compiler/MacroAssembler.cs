@@ -39,6 +39,7 @@ public static class MacroAssembler
         List<string> references = new();
         List<string> assemblyFilenames = new();
 
+        var startLine = 5 + 6 + engine.Namespaces.Count();
         output.AppendLine("using System;");
         output.AppendLine("using System.Linq;");
         output.AppendLine("using System.Collections;");
@@ -114,7 +115,7 @@ public static class MacroAssembler
         output.AppendLine("}");
         output.AppendLine("}");
 
-        return new PreProcessResult(references, assemblyFilenames, engine.Process(userHeader.ToString() + output.ToString()));
+        return new PreProcessResult(references, assemblyFilenames, engine.Process(userHeader.ToString() + output.ToString(), startLine));
     }
 
     private sealed record class PreProcessResult(List<string> References, List<string> AssemblyFilenames, string Content);
@@ -145,7 +146,7 @@ public static class MacroAssembler
 
         assemblies.AddRange(engine.Assemblies);
 
-        foreach(var assemblyFilename in content.AssemblyFilenames)
+        foreach (var assemblyFilename in content.AssemblyFilenames)
         {
             var assemblyInclude = Assembly.LoadFrom(assemblyFilename);
             Console.WriteLine($"Adding File Assembly: {assemblyInclude.FullName}");
@@ -164,7 +165,7 @@ public static class MacroAssembler
         CSharpCompilation compilation = CSharpCompilation.Create(
             contentAssemblyName,
             new[] { syntaxTree },
-            assemblies.Select(ass => MetadataReference.CreateFromFile(ass.Location) ),
+            assemblies.Select(ass => MetadataReference.CreateFromFile(ass.Location)),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         MemoryStream memoryStream = new MemoryStream();
@@ -198,5 +199,6 @@ public static class MacroAssembler
         return new ProcessResult(engine.Beautify(Template.GenerateCode()), memoryStream.ToArray());
     }
 
-    public record class ProcessResult(string Content, byte[] CompiledData);
+    public record class ProcessResult(ISourceResult Source, byte[] CompiledData);
+    public record class SourceResult(string Code, int[] Map) : ISourceResult;
 }

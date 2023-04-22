@@ -10,3 +10,9 @@ public interface ITemplateRunner
 {
     Task Execute();
 }
+
+public interface ISourceResult
+{
+    string Code { get; }
+    int[] Map { get; }
+}

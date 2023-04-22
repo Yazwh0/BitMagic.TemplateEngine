@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using BitMagic.TemplateEngine.Objects;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -7,8 +8,8 @@ namespace BitMagic.TemplateEngine
     public interface ITemplateEngine
     {
         string TemplateName { get; }
-        string Process(string input);
-        string Beautify(string input);
+        string Process(string input, int startLine);
+        ISourceResult Beautify(ISourceResult input);
         public IEnumerable<string> Namespaces { get; }
         public IEnumerable<Assembly> Assemblies { get; }
     }
@@ -17,7 +18,7 @@ namespace BitMagic.TemplateEngine
     {
         private readonly Regex[] _lineParsers;
         private readonly (Regex Search, Regex Substitute)[] _inLineCSharp;
-        private readonly Func<string, string> _beautify;
+        private readonly Func<ISourceResult, ISourceResult> _beautify;
         private readonly string[] _namespaces;
         private readonly Assembly[] _assemblies;
 
@@ -28,7 +29,7 @@ namespace BitMagic.TemplateEngine
         public IEnumerable<Assembly> Assemblies => _assemblies;
 
         internal TemplateEngine(string name, IEnumerable<Regex> lineParsers, IEnumerable<(Regex Search, Regex Substitute)> inLineParsers,
-            Func<string, string> beautify, IEnumerable<string> namespaces, IEnumerable<Assembly> assemblies, bool requiresTidyup = false, string tidyMarker = "")
+            Func<ISourceResult, ISourceResult> beautify, IEnumerable<string> namespaces, IEnumerable<Assembly> assemblies, bool requiresTidyup = false, string tidyMarker = "")
         {
             TemplateName = name;
             _namespaces = namespaces.ToArray();
@@ -40,12 +41,13 @@ namespace BitMagic.TemplateEngine
             TidyMarker = tidyMarker;
         }
 
-        public string Process(string input)
+        public string Process(string input, int startLine)
         {
+            int lineNumber = -startLine + 2;
             var lines = input.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
             var sb = new StringBuilder();
-
-            foreach(var line in lines)
+           
+            foreach (var line in lines)
             {
                 bool matched = false;
                 foreach(var r in _lineParsers)
@@ -58,7 +60,9 @@ namespace BitMagic.TemplateEngine
 
                         if (match.Success)
                         {
+                            sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetLineNumber({lineNumber++});");
                             sb.AppendLine(ProcessAsmLine(match.Value));
+                            sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetLineNumber({lineNumber});");
                         }
                         // perform change
                         matched = true;
@@ -68,6 +72,9 @@ namespace BitMagic.TemplateEngine
                 if (!matched)
                 {
                     sb.AppendLine(line);
+                    if (lineNumber == 1)
+                        sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetLineNumber({lineNumber});");
+                    lineNumber++;
                 }
             }
 
@@ -106,6 +113,6 @@ namespace BitMagic.TemplateEngine
             return $"BitMagic.TemplateEngine.Objects.Template.WriteLiteral($@\"{output}\");";
         }
 
-        public string Beautify(string input) => _beautify(input);
+        public ISourceResult Beautify(ISourceResult input) => _beautify(input);
     }
 }

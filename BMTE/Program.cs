@@ -10,6 +10,7 @@ var inputCode = @"
     for (var i = 0; i < 10; i++)
     {
         lda #@(i)
+        sta DATA0
     }
     .endproc
 
@@ -18,4 +19,11 @@ var inputCode = @"
 
 var result = await engine.ProcessFile(inputCode, "main.dll");
 
-Console.WriteLine(result.Content);
+var generated = result.Source.Code.Split(Environment.NewLine);
+for(var i = 0; i < generated.Length; i++)
+{
+    if (result.Source.Map.Length > i)
+        Console.Write(result.Source.Map[i]);
+    Console.Write("\t");
+    Console.WriteLine(generated[i]);
+}

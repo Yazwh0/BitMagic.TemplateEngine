@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BitMagic.TemplateEngine.Objects;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -14,7 +15,7 @@ public interface ITemplateEngineBuilder
     public ITemplateEngineBuilder WithCSharpInline(Regex search, Regex substitue);
     public ITemplateEngine Build();
     public ITemplateEngineBuilder RequiresTidyup(string marker);
-    public ITemplateEngineBuilder WithBeautifier(Func<string, string> beautify);
+    public ITemplateEngineBuilder WithBeautifier(Func<ISourceResult, ISourceResult> beautify);
     public ITemplateEngineBuilder WithNamespace(string namespaceLine);
     public ITemplateEngineBuilder WithAssembly(Assembly assembly);
 }
@@ -34,7 +35,7 @@ public class TemplateEngineBuilderStep : ITemplateEngineBuilder
     internal string _name;
     internal bool _requiresTidyup = false;
     internal string _tidyMarker = "";
-    internal Func<string, string> _beautify = (x) => x;
+    internal Func<ISourceResult, ISourceResult> _beautify = (x) => x;
     internal List<string> _namespaces = new();
     internal List<Assembly> _assemblies = new();
 
@@ -62,7 +63,7 @@ public class TemplateEngineBuilderStep : ITemplateEngineBuilder
         return this;
     }
 
-    public ITemplateEngineBuilder WithBeautifier(Func<string, string> beautify)
+    public ITemplateEngineBuilder WithBeautifier(Func<ISourceResult, ISourceResult> beautify)
     {
         _beautify = beautify;
         return this;
@@ -73,7 +74,7 @@ public class TemplateEngineBuilderStep : ITemplateEngineBuilder
         _namespaces.Add(namespaceLine);
         return this;
     }
-        
+
     public ITemplateEngineBuilder WithAssembly(Assembly assembly)
     {
         _assemblies.Add(assembly);

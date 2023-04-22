@@ -8,6 +8,10 @@
   
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <Optimize>true</Optimize>
-  </PropertyGroup>  
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <ProjectReference Include="..\BitMagic.TemplateEngine.Objects\BitMagic.TemplageEngine.Objects.csproj" />
+  </ItemGroup>  
   
 </Project>

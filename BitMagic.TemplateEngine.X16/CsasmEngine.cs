@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿using BitMagic.TemplateEngine.Objects;
+using System.Net.WebSockets;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace BitMagic.TemplateEngine.X16;
@@ -20,24 +22,36 @@ public static class CsasmEngine
             .WithAssembly(typeof(Helper).Assembly)
             .Build();
 
-    private static string Beautify(string input)
+    private static ISourceResult Beautify(ISourceResult input)
     {
         var sb = new StringBuilder();
-        var lines = input.Split('\n');
+        var lines = input.Code.Split('\n');
         var indent = 0;
         var label = new Regex(@"^(\.[\w\-_]+\:)", RegexOptions.Compiled);
         var lastBlank = false;
+        var map = new List<int>();
+        var idx = 0;
 
         foreach (var l in lines)
         {
+            if (l == null)
+                continue;
+
             var line = l.Trim();
+
             var addBlank = false;
 
             if (line.StartsWith(".scope", StringComparison.InvariantCultureIgnoreCase) && !lastBlank)
+            {
                 sb.AppendLine();
+                map.Add(0);
+            }
 
             if (line.StartsWith(".proc", StringComparison.InvariantCultureIgnoreCase) && !lastBlank)
+            {
                 sb.AppendLine();
+                map.Add(0);
+            }
 
             if (line.EndsWith(".endproc", StringComparison.InvariantCultureIgnoreCase))
             {
@@ -52,12 +66,17 @@ public static class CsasmEngine
             }
 
             if (label.IsMatch(line))
+            {
                 sb.AppendLine();
+                map.Add(0);
+            }
 
             if (indent > 0)
                 sb.Append('\t', indent);
 
             sb.AppendLine(line);
+            if (input.Map.Length > idx)
+                map.Add(input.Map[idx++]);
 
             if (line.StartsWith(".proc", StringComparison.InvariantCultureIgnoreCase))
                 indent++;
@@ -73,10 +92,13 @@ public static class CsasmEngine
             if (addBlank)
             {
                 sb.AppendLine();
+                map.Add(0);
                 lastBlank = true;
             }
         }
+        map.Add(0);
 
-        return sb.ToString();
+        return new SourceResult(sb.ToString(), map.ToArray());
     }
+    private sealed record class SourceResult(string Code, int[] Map) : ISourceResult;
 }
