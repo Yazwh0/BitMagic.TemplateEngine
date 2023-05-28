@@ -43,7 +43,7 @@ namespace BitMagic.TemplateEngine
 
         public string Process(string input, int startLine)
         {
-            int lineNumber = -startLine + 2;
+            int lineNumber = -startLine+1; // was +2!
             var lines = input.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
             var sb = new StringBuilder();
            
@@ -66,7 +66,7 @@ namespace BitMagic.TemplateEngine
                         }
                         // perform change
                         matched = true;
-                    } 
+                    }
                 }
 
                 if (!matched)
@@ -78,7 +78,8 @@ namespace BitMagic.TemplateEngine
                 }
             }
 
-            return sb.ToString();
+            var toReturn = sb.ToString();
+            return toReturn;
         }
 
         public string ProcessAsmLine(string input)

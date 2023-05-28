@@ -16,7 +16,7 @@ public static class Template
     public static void WriteLiteral(string literal)
     {
         _output.AppendLine(literal);
-        _map.Add(_linenumber++);
+        _map.Add(_linenumber);
     }
 
     public static void StartProject()

@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using BitMagic.TemplateEngine;
 using BitMagic.TemplateEngine.Objects;
+using BitMagic.Common;
 
 namespace BigMagic.TemplateEngine.Compiler;
 
@@ -66,12 +67,14 @@ public static class MacroAssembler
             // emtpy line
             if (string.IsNullOrWhiteSpace(trimmed))
             {
+                output.AppendLine(line);
                 continue;
             }
 
             if (trimmed.StartsWith("using"))
             {
                 userHeader.AppendLine(trimmed);
+                output.AppendLine(line); 
                 continue;
             }
 
@@ -84,11 +87,13 @@ public static class MacroAssembler
                     name = name.Substring(0, name.Length - 1);
 
                 references.Add(name);
+                output.AppendLine(line);
                 continue;
             }
 
             if (trimmed.StartsWith("assembly"))
             {
+                output.AppendLine(line);
                 var name = trimmed.Substring("assembly ".Length);
 
                 var idx = name.IndexOf(';');
@@ -199,6 +204,31 @@ public static class MacroAssembler
         return new ProcessResult(engine.Beautify(Template.GenerateCode()), memoryStream.ToArray());
     }
 
-    public record class ProcessResult(ISourceResult Source, byte[] CompiledData);
+    public class ProcessResult : ISourceFile
+    {
+        public ISourceResult Source { get; }
+        public byte[] CompiledData { get; }
+
+        public string Name { get; set; } = "";
+        public string Path { get; set; } = "";
+        public int? ReferenceId { get; set; } = null;
+        public SourceFileOrigin Origin => SourceFileOrigin.Intermediary;
+        public bool Volatile => false;
+        public Action Generate => () => { };
+        public bool ActualFile => false;
+        public ISourceFile? Parent { get; set; }
+
+        public ProcessResult(ISourceResult source, byte[] compiledData)
+        {
+            Source = source;
+            CompiledData = compiledData;
+        }
+
+        public string GetContent()
+        {
+            return Source.Code;
+        }
+    }
+
     public record class SourceResult(string Code, int[] Map) : ISourceResult;
 }

@@ -3,18 +3,23 @@ using BitMagic.TemplateEngine.X16;
 
 var engine = CsasmEngine.CreateEngine();
 
-var inputCode = @"
-    BM.X16Header();
+var inputCode = @".machine CommanderX16R42
+    @BM.X16Header();
+    nop
+    nop
+    nop
+    nop
 
-    .proc docount
-    for (var i = 0; i < 10; i++)
+    for (var i = 1; i < 10; i ++)
     {
+        ; step @(i)
         lda #@(i)
-        sta DATA0
     }
-    .endproc
 
-    @BM.Bytes(new [] {1, 2, 3});
+.loop:
+    jmp loop
+
+    rts
 ";
 
 var result = await engine.ProcessFile(inputCode, "main.dll");
