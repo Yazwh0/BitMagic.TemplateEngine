@@ -7,6 +7,8 @@ public static class Helper
 {
     public static void Bytes(IEnumerable<int> bytes, int width = 16) => Bytes(bytes.Select(i => (byte)i), width);
 
+    public static void Bytes(IEnumerable<sbyte> bytes, int width = 16) => Bytes(bytes.Select(i => unchecked((byte)i)), width);
+
     public static void Bytes(IEnumerable<byte> bytes, int width = 16)
     {
         StringBuilder sb = new StringBuilder();
@@ -108,4 +110,35 @@ public static class Helper
     //                                ; ($0000 = end of program)
     //    .byte $00, $00              ; Padding so code starts at $0810
     public static void X16Header() => Bytes(new byte[] { 0x0c, 0x08, 0x0a, 0x00, 0x9e, 0x20, 0x32, 0x30, 0x36, 0x34, 0x00, 0x00, 0x00, 0x00, 0x00 });
+
+    public static void Petscii(string input, bool addNullTermination = true) => Bytes(StringToPetscii(input, addNullTermination));
+
+    public static IEnumerable<byte> StringToPetscii(string input, bool addNullTermination = true)
+    {
+        for(var i = 0; i < input.Length; i++)
+        {
+            yield return (byte)input[i];
+        }
+
+        if (addNullTermination)
+            yield return 0x00;
+    }
+
+    public static void IsoPetscii(string input, bool addNullTermination = true) => Bytes(IsoStringToPetscii(input, addNullTermination));
+
+    private static IEnumerable<byte> IsoStringToPetscii(string input, bool addNullTermination = true)
+    {
+        for(var i = 0; i < input.Length; i++)
+        {
+            var val = (byte)input[i];
+
+            if (val >= 0x40 && val < 0x60)
+                val -= 0x40;
+
+            yield return val;
+        }
+
+        if (addNullTermination)
+            yield return 0x00;
+    }
 }
