@@ -8,11 +8,13 @@ namespace BitMagic.TemplateEngine
     public interface ITemplateEngine
     {
         string TemplateName { get; }
-        string Process(string input, int startLine);
+        ProcessResult Process(string input, int startLine);
         ISourceResult Beautify(ISourceResult input);
         public IEnumerable<string> Namespaces { get; }
         public IEnumerable<Assembly> Assemblies { get; }
     }
+
+    public sealed record class ProcessResult(string Code, IList<int> Map);
 
     public class TemplateEngine : ITemplateEngine
     {
@@ -41,12 +43,13 @@ namespace BitMagic.TemplateEngine
             TidyMarker = tidyMarker;
         }
 
-        public string Process(string input, int startLine)
+        public ProcessResult Process(string input, int startLine)
         {
             int lineNumber = -startLine+1; // was +2!
             var lines = input.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
             var sb = new StringBuilder();
-           
+            var map = new List<int>();
+
             foreach (var line in lines)
             {
                 bool matched = false;
@@ -60,9 +63,15 @@ namespace BitMagic.TemplateEngine
 
                         if (match.Success)
                         {
-                            sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetLineNumber({lineNumber++});");
-                            sb.AppendLine(ProcessAsmLine(match.Value));
+                            map.Add(0);
                             sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetLineNumber({lineNumber});");
+
+                            map.Add(lineNumber);
+                            sb.AppendLine(ProcessAsmLine(match.Value));
+
+                            lineNumber++;
+                            sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetLineNumber({lineNumber});");
+                            map.Add(0);
                         }
                         // perform change
                         matched = true;
@@ -71,15 +80,18 @@ namespace BitMagic.TemplateEngine
 
                 if (!matched)
                 {
+                    map.Add(lineNumber);
                     sb.AppendLine(line);
                     if (lineNumber == 1)
+                    {
                         sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetLineNumber({lineNumber});");
+                        map.Add(0);
+                    }
                     lineNumber++;
                 }
             }
 
-            var toReturn = sb.ToString();
-            return toReturn;
+            return new ProcessResult(sb.ToString(), map);
         }
 
         public string ProcessAsmLine(string input)

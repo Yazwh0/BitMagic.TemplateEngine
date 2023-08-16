@@ -16,9 +16,9 @@ namespace BigMagic.TemplateEngine.Compiler;
 
 public static class MacroAssembler
 {
-    public static async Task<ProcessResult> ProcessFile(this ITemplateEngine engine, string content, string contentAssemblyName)
+    public static async Task<ProcessResult> ProcessFile(this ITemplateEngine engine, string content, string contentAssemblyName, string filename)
     {
-        var newContent = PreProcessFile(engine, content);
+        var newContent = PreProcessFile(engine, content, filename);
         return await CompileFile(newContent, contentAssemblyName, engine);
     }
 
@@ -28,7 +28,7 @@ public static class MacroAssembler
     /// <param name="contents">Input file contents</param>
     /// <returns>File that can be compiled</returns>
     /// <exception cref="ArgumentNullException"></exception>
-    private static PreProcessResult PreProcessFile(ITemplateEngine engine, string contents)
+    private static PreProcessResult PreProcessFile(ITemplateEngine engine, string contents, string filename)
     {
         if (contents == null)
             throw new ArgumentNullException(nameof(contents));
@@ -39,7 +39,8 @@ public static class MacroAssembler
         var userHeader = new StringBuilder();
         List<string> references = new();
         List<string> assemblyFilenames = new();
-
+        List<TemplateMap> map = new();
+        
         var startLine = 5 + 6 + engine.Namespaces.Count();
         output.AppendLine("using System;");
         output.AppendLine("using System.Linq;");
@@ -74,7 +75,7 @@ public static class MacroAssembler
             if (trimmed.StartsWith("using"))
             {
                 userHeader.AppendLine(trimmed);
-                output.AppendLine(line); 
+                output.AppendLine(line);
                 continue;
             }
 
@@ -120,10 +121,24 @@ public static class MacroAssembler
         output.AppendLine("}");
         output.AppendLine("}");
 
-        return new PreProcessResult(references, assemblyFilenames, engine.Process(userHeader.ToString() + output.ToString(), startLine));
+        var processResult = engine.Process(userHeader.ToString() + output.ToString(), startLine);
+
+        var cnt = 1;
+        for(var i = 0; i < processResult.Map.Count; i ++)
+        {
+            if (processResult.Map[i] > 0)
+                map.Add(new TemplateMap(cnt, processResult.Map[i]));
+
+            cnt++;
+        }
+
+        return new PreProcessResult(references, assemblyFilenames, processResult.Code, map, filename);
     }
 
-    private sealed record class PreProcessResult(List<string> References, List<string> AssemblyFilenames, string Content);
+    private sealed record class PreProcessResult(List<string> References, List<string> AssemblyFilenames, string Content, IList<TemplateMap> CodeMap, string Filename);
+
+    // used to map the generated code to the original file, eg for error reporting.
+    private record struct TemplateMap(int GeneratedLine, int OriginalLine);
 
     private static async Task<ProcessResult> CompileFile(PreProcessResult content, string contentAssemblyName, ITemplateEngine engine)
     {
@@ -179,13 +194,35 @@ public static class MacroAssembler
 
         if (!emitResult.Success)
         {
-            var exception = new CompilationException()
+            var toThrow = new TemplateCompilationException
             {
-                Errors = emitResult.Diagnostics.ToList(),
-                GeneratedCode = toProcess
+                GeneratedCode = toProcess,
+                CSharpErrors = emitResult.Diagnostics.Where(i => i.Severity == DiagnosticSeverity.Error).ToList(),
+                Filename = content.Filename
             };
 
-            throw exception;
+            foreach (var error in toThrow.CSharpErrors)
+            {
+                var location = error.Location.GetLineSpan();
+                var lineNumber = -1;
+
+                for(var i = 0; i < content.CodeMap.Count; i++)
+                {
+                    if (content.CodeMap[i].GeneratedLine == location.StartLinePosition.Line + 1)
+                    {
+                        lineNumber = content.CodeMap[i].OriginalLine;
+                        break;
+                    }
+                }
+
+                toThrow.Errors.Add(new CompilationError()
+                {
+                    ErrorText = error.GetMessage(),
+                    LineNumber = lineNumber
+                });
+            }
+
+            throw toThrow;
         }
 
         memoryStream.Position = 0;
