@@ -39,6 +39,9 @@ public static class Helper
         Template.WriteLiteral(sb.ToString());
     }
 
+    public static void Bytes(string stringData)
+        => Bytes(stringData.ToCharArray().Select(i => (byte)i));
+
     public static void Words(IEnumerable<ushort> words, int width = 16)
     {
         StringBuilder sb = new StringBuilder();
