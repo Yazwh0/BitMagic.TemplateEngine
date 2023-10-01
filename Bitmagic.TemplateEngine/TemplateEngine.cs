@@ -8,7 +8,7 @@ namespace BitMagic.TemplateEngine
     public interface ITemplateEngine
     {
         string TemplateName { get; }
-        ProcessResult Process(string input, int startLine);
+        ProcessResult Process(string input, int startLine, string sourceFileName, bool isLibrary);
         ISourceResult Beautify(ISourceResult input);
         public IEnumerable<string> Namespaces { get; }
         public IEnumerable<Assembly> Assemblies { get; }
@@ -43,9 +43,9 @@ namespace BitMagic.TemplateEngine
             TidyMarker = tidyMarker;
         }
 
-        public ProcessResult Process(string input, int startLine)
+        public ProcessResult Process(string input, int startLine, string sourceFileName, bool isLibrary)
         {
-            int lineNumber = -startLine+1; // was +2!
+            int lineNumber = -startLine; // was +2!
             var lines = input.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
             var sb = new StringBuilder();
             var map = new List<int>();
@@ -64,13 +64,13 @@ namespace BitMagic.TemplateEngine
                         if (match.Success)
                         {
                             map.Add(0);
-                            sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetLineNumber({lineNumber});");
+                            sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetSourceMap(@\"{sourceFileName}\", {lineNumber});");
 
                             map.Add(lineNumber);
                             sb.AppendLine(ProcessAsmLine(match.Value));
 
                             lineNumber++;
-                            sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetLineNumber({lineNumber});");
+                            sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetSourceMap(@\"{sourceFileName}\", {lineNumber});");
                             map.Add(0);
                         }
                         // perform change
@@ -82,9 +82,9 @@ namespace BitMagic.TemplateEngine
                 {
                     map.Add(lineNumber);
                     sb.AppendLine(line);
-                    if (lineNumber == 1)
+                    if (lineNumber == 1 && !isLibrary)
                     {
-                        sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetLineNumber({lineNumber});");
+                        sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetSourceMap(@\"{sourceFileName}\", {lineNumber});");
                         map.Add(0);
                     }
                     lineNumber++;

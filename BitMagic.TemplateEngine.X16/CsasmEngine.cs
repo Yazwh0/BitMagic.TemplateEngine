@@ -29,7 +29,7 @@ public static class CsasmEngine
         var indent = 0;
         var label = new Regex(@"^(\.[\w\-_]+\:)", RegexOptions.Compiled);
         var lastBlank = false;
-        var map = new List<int>();
+        var map = new List<ISourceResultMap>();
         var idx = 0;
 
         foreach (var l in lines)
@@ -44,13 +44,13 @@ public static class CsasmEngine
             if (line.StartsWith(".scope", StringComparison.InvariantCultureIgnoreCase) && !lastBlank)
             {
                 sb.AppendLine();
-                map.Add(0);
+                map.Add(new SourceResultMap(0, ""));
             }
 
             if (line.StartsWith(".proc", StringComparison.InvariantCultureIgnoreCase) && !lastBlank)
             {
                 sb.AppendLine();
-                map.Add(0);
+                map.Add(new SourceResultMap(0, ""));
             }
 
             if (line.EndsWith(".endproc", StringComparison.InvariantCultureIgnoreCase))
@@ -68,14 +68,14 @@ public static class CsasmEngine
             if (label.IsMatch(line))
             {
                 sb.AppendLine();
-                map.Add(0);
+                map.Add(new SourceResultMap(0, ""));
             }
 
             if (indent > 0)
                 sb.Append('\t', indent);
 
             sb.AppendLine(line);
-            if (input.Map.Length > idx)
+            if (input.Map.Length > idx) //                //map.Add(input.Map[idx++]);
                 map.Add(input.Map[idx++]);
 
             if (line.StartsWith(".proc", StringComparison.InvariantCultureIgnoreCase))
@@ -92,13 +92,12 @@ public static class CsasmEngine
             if (addBlank)
             {
                 sb.AppendLine();
-                map.Add(0);
+                map.Add(new SourceResultMap(0, ""));
                 lastBlank = true;
             }
         }
-        map.Add(0);
+        map.Add(new SourceResultMap(0, ""));
 
         return new SourceResult(sb.ToString(), map.ToArray());
     }
-    private sealed record class SourceResult(string Code, int[] Map) : ISourceResult;
 }

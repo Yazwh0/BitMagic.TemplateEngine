@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace BitMagic.TemplateEngine.Objects;
+﻿namespace BitMagic.TemplateEngine.Objects;
 
 public interface ITemplateRunner
 {
@@ -14,5 +8,14 @@ public interface ITemplateRunner
 public interface ISourceResult
 {
     string Code { get; }
-    int[] Map { get; }
+    ISourceResultMap[] Map { get; }
 }
+
+public interface ISourceResultMap
+{
+    int Line { get; }
+    string SourceFilename { get; }
+}
+
+public sealed record class SourceResult(string Code, ISourceResultMap[] Map) : ISourceResult;
+public sealed record class SourceResultMap(int Line, string SourceFilename) : ISourceResultMap;
