@@ -189,6 +189,7 @@ public static class MacroAssembler
         var output = new StringBuilder();
         var userHeader = new StringBuilder();
         var initMethod = new StringBuilder();
+        var libraries = new StringBuilder();
         List<string> references = new();
         List<string> assemblyFilenames = new();
         List<TemplateMap> map = new();
@@ -263,8 +264,10 @@ public static class MacroAssembler
                 if (!buildState.FilenameToClassname.ContainsKey(importFilename.Value))
                     throw new ImportParseException($"File '{importFilename.Value}' does not appear to have been built.");
 
+                var fullName = buildState.FilenameToClassname[importFilename.Value];
                 userHeader.AppendLine($"using {importName.Value} = {buildState.FilenameToClassname[importFilename.Value]};");
-                initMethod.AppendLine($"(new {importName.Value}()).Initialise();");
+                initMethod.AppendLine($"{importName.Value}.Initialise();");
+                libraries.AppendLine($"private readonly {fullName} {importName.Value} = new();");
                 //startLine++;
                 continue;
             }
@@ -321,6 +324,8 @@ public static class MacroAssembler
         else
         {
             output.AppendLine("\t}");
+
+            output.AppendLine(libraries.ToString());
 
             output.AppendLine("\tvoid ITemplateRunner.Initialise()");
             output.AppendLine("\t{");
