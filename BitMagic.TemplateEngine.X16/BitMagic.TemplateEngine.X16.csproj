@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BitMagic.TemplateEngine.Objects\BitMagic.TemplageEngine.Objects.csproj" />
+    <ProjectReference Include="..\BitMagic.TemplateEngine.Objects\BitMagic.TemplateEngine.Objects.csproj" />
     <ProjectReference Include="..\Bitmagic.TemplateEngine\BitMagic.TemplateEngine.csproj" />
   </ItemGroup>
 
