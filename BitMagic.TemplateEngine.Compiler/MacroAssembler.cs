@@ -194,7 +194,8 @@ public static class MacroAssembler
         List<string> assemblyFilenames = new();
         List<TemplateMap> map = new();
 
-        var startLine = isLibrary ? 5 + 3 + engine.Namespaces.Count() : 5 + 6 + engine.Namespaces.Count();
+        var startLine = isLibrary ? 5 + 3 + engine.Namespaces.Count() : 11 + engine.Namespaces.Count();
+        var lineAdjust = 0;
 
         output.AppendLine("using System;");
         output.AppendLine("using System.Linq;");
@@ -224,6 +225,8 @@ public static class MacroAssembler
             output.AppendLine("\tasync Task ITemplateRunner.Execute()");
             output.AppendLine("\t{");
         }
+
+
 
         foreach (var line in lines)
         {
@@ -268,7 +271,7 @@ public static class MacroAssembler
                 userHeader.AppendLine($"using {importName.Value} = {buildState.FilenameToClassname[importFilename.Value]};");
                 initMethod.AppendLine($"{importName.Value}.Initialise();");
                 libraries.AppendLine($"private readonly {fullName} {importName.Value} = new();");
-                //startLine++;
+                lineAdjust++;
                 continue;
             }
 
@@ -337,7 +340,7 @@ public static class MacroAssembler
 
         output.AppendLine("}"); // closes namespace
 
-        var processResult = engine.Process(userHeader.ToString() + output.ToString(), startLine, filename, isLibrary);
+        var processResult = engine.Process(userHeader.ToString() + output.ToString(), startLine, lineAdjust, filename, isLibrary);
 
         var cnt = 1;
         for (var i = 0; i < processResult.Map.Count; i++)
