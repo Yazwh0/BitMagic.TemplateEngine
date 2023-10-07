@@ -3,6 +3,7 @@
 public interface ITemplateRunner
 {
     Task Execute();
+    void Initialise();
 }
 
 public interface ISourceResult

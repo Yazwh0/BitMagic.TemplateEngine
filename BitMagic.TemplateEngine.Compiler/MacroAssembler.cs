@@ -188,6 +188,7 @@ public static class MacroAssembler
 
         var output = new StringBuilder();
         var userHeader = new StringBuilder();
+        var initMethod = new StringBuilder();
         List<string> references = new();
         List<string> assemblyFilenames = new();
         List<TemplateMap> map = new();
@@ -212,7 +213,7 @@ public static class MacroAssembler
 
         if (isLibrary)
         {
-            output.AppendLine($"public class {className}");
+            output.AppendLine($"public class {className} : BitMagic.TemplateEngine.Objects.LibraryBase");
             output.AppendLine("{");
         }
         else
@@ -263,6 +264,7 @@ public static class MacroAssembler
                     throw new ImportParseException($"File '{importFilename.Value}' does not appear to have been built.");
 
                 userHeader.AppendLine($"using {importName.Value} = {buildState.FilenameToClassname[importFilename.Value]};");
+                initMethod.AppendLine($"(new {importName.Value}()).Initialise();");
                 //startLine++;
                 continue;
             }
@@ -314,15 +316,21 @@ public static class MacroAssembler
 
         if (isLibrary)
         {
-            output.AppendLine("\t}");
-            output.AppendLine("}");
+            output.AppendLine("\t}"); // closes class
         }
         else
         {
             output.AppendLine("\t}");
-            output.AppendLine("}");
-            output.AppendLine("}");
+
+            output.AppendLine("\tvoid ITemplateRunner.Initialise()");
+            output.AppendLine("\t{");
+            output.AppendLine(initMethod.ToString());
+            output.AppendLine("\t}");
+
+            output.AppendLine("}"); // closes class
         }
+
+        output.AppendLine("}"); // closes namespace
 
         var processResult = engine.Process(userHeader.ToString() + output.ToString(), startLine, filename, isLibrary);
 
@@ -459,28 +467,12 @@ public static class MacroAssembler
         {
             Template.StartProject();
 
-            //var assembly2 = Assembly.LoadFrom($"Bin\\BitMagic.Libraries.dll");
-            //var assembly = Assembly.LoadFrom($"Bin\\{@namespace}.dll");
-            //var assembly = AppDomain.CurrentDomain.Load(assemblyData);
-
-            ////var assembly = Assembly.Load(assemblyData);
-
-
-            //foreach (var library in buildState.AllReferences)
-            //{
-            //   // var t = Assembly.Load(library.CompiledData);
-            //    var a = AppDomain.CurrentDomain.Load(library.CompiledData);
-            //    var test = Activator.CreateInstance(a.GetType($"BitMagic.Libraries.Vera"));
-            //}
-
             var runner = AppDomain.CurrentDomain.CreateInstance($"{@namespace}.dll", $"{@namespace}.{className}").Unwrap() as ITemplateRunner;
-            //var runner = Activator.CreateInstance(assembly.GetType($"{@namespace}.{className}") ?? throw new Exception("${@namespace}.{className} not in compiled dll.")) as ITemplateRunner;
-
-            //var runner = assembly.CreateInstance($"{@namespace}.{className}") as ITemplateRunner;
 
             if (runner == null)
                 throw new Exception($"{className} is not a ITemplateRunner");
 
+            runner.Initialise();
             await runner.Execute();
         }
 
