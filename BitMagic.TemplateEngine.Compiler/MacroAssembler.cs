@@ -14,7 +14,6 @@ using System.Text.RegularExpressions;
 using BitMagic.Compiler;
 using System.Diagnostics;
 using Newtonsoft.Json;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace BitMagic.TemplateEngine.Compiler;
 
