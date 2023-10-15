@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -10,13 +11,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="3.8.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.7.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\BitMagic.Libraries\BitMagic.Common\BitMagic.Common.csproj" />
     <ProjectReference Include="..\..\BitMagic.X16Compiler\BitMagic.Compiler\BitMagic.Compiler.csproj" />
     <ProjectReference Include="..\BitMagic.TemplateEngine.Objects\BitMagic.TemplateEngine.Objects.csproj" />
+    <!--<ProjectReference Include="..\BitMagic.TemplateEngine.Runner\BitMagic.TemplateEngine.Runner.csproj" />-->
     <ProjectReference Include="..\Bitmagic.TemplateEngine\BitMagic.TemplateEngine.csproj" />
   </ItemGroup>
   

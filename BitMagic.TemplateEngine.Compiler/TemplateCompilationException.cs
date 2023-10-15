@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace BigMagic.TemplateEngine.Compiler;
+namespace BitMagic.TemplateEngine.Compiler;
 
 public abstract class TemplateException : Exception
 {

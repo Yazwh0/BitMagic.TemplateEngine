@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "BitMagic.TemplateEngine.Runner": {
+      "commandName": "Project",
+      "commandLineArgs": "-l \"Bin\\BitMagic.Initialisation.dll\" \"Bin\\BitBench.Globals.dll\" \"Bin\\BitBench.Memory.dll\" \"Bin\\BitBench.Scheduler.dll\" \"Bin\\BitMagic.App.main.dll\" -n BitMagic.App.main -c Template -b \"C:\\Documents\\Source\\BitMagic\\BitMagic.X16Debugger\\X16D\\bin\\Debug\\net6.0\"\r\n"
+    }
+  }
+}

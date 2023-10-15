@@ -1,5 +1,4 @@
 ﻿using BitMagic.TemplateEngine.Objects;
-using System.Net.WebSockets;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -22,7 +21,7 @@ public static class CsasmEngine
             .WithAssembly(typeof(Helper).Assembly)
             .Build();
 
-    private static ISourceResult Beautify(ISourceResult input)
+    public static ISourceResult Beautify(ISourceResult input)
     {
         var sb = new StringBuilder();
         var lines = input.Code.Split('\n');

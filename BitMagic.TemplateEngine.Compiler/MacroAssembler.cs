@@ -8,14 +8,15 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
-using BitMagic.TemplateEngine;
 using BitMagic.TemplateEngine.Objects;
 using BitMagic.Common;
-using BitMagic.TemplateEngine.Compiler;
 using System.Text.RegularExpressions;
 using BitMagic.Compiler;
+using System.Diagnostics;
+using Newtonsoft.Json;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace BigMagic.TemplateEngine.Compiler;
+namespace BitMagic.TemplateEngine.Compiler;
 
 public static class MacroAssembler
 {
@@ -33,14 +34,14 @@ public static class MacroAssembler
         return (await ProcessFile(engine, source, filename, options, logger, new GlobalBuildState(), "  ", false)).Result;
     }
 
-    private static async Task<(ProcessResult Result, bool RequireBuild)> ProcessFile(this ITemplateEngine engine, ISourceFile source, string filename, TemplateOptions options, 
+    private static async Task<(ProcessResult Result, bool RequireBuild)> ProcessFile(this ITemplateEngine engine, ISourceFile source, string filename, TemplateOptions options,
         IEmulatorLogger logger, GlobalBuildState buildState, string indent, bool isLibrary)
     {
         var (assemblyData, @namespace, classname, requireBuild) = await GetAssembly(engine, source, filename, options, logger, buildState, indent, isLibrary);
         return (await CompileFile(assemblyData, engine, buildState, @namespace, classname, isLibrary), requireBuild);
     }
 
-    private static async Task<(byte[] AssembleyData, string Namespace, string Classname, bool RequireBuild)> GetAssembly(this ITemplateEngine engine, ISourceFile source, 
+    private static async Task<(byte[] AssembleyData, string Namespace, string Classname, bool RequireBuild)> GetAssembly(this ITemplateEngine engine, ISourceFile source,
         string filename, TemplateOptions options, IEmulatorLogger logger, GlobalBuildState buildState, string indent, bool isLibrary)
     {
         var lines = source.GetContent().Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.TrimEntries);
@@ -58,16 +59,18 @@ public static class MacroAssembler
             if (Directory.Exists(options.BinFolder))
             {
                 await File.WriteAllBytesAsync(binaryFilename, assemblyData);
-                Assembly.LoadFrom(binaryFilename); // we need to _read from disk_ so the activator works later!!
+                buildState.BinaryFilenames.Add(binaryFilename);
+                //                Assembly.LoadFrom(binaryFilename); // we need to _read from disk_ so the activator works later!!
             }
         }
         else
         {
             logger.LogLine($"{indent}Loading assembly '{binaryFilename}'");
 
-            Assembly.LoadFrom(binaryFilename); // we need to _read from disk_ so the activator works later!!
+            //            Assembly.LoadFrom(binaryFilename); // we need to _read from disk_ so the activator works later!!
 
             assemblyData = await File.ReadAllBytesAsync(binaryFilename);
+            buildState.BinaryFilenames.Add(binaryFilename);
         }
 
         return (assemblyData, @namespace, classname, requireBuild);
@@ -372,6 +375,7 @@ public static class MacroAssembler
         public Dictionary<string, string> FilenameToClassname { get; } = new();
         public List<ProcessResult> References { get; } = new();
         public IEnumerable<ProcessResult> AllReferences => References.Union(References.SelectMany(i => i.References));
+        public List<string> BinaryFilenames { get; } = new(0);
     }
 
     // used to map the generated code to the original file, eg for error reporting.
@@ -469,22 +473,111 @@ public static class MacroAssembler
         return memoryStream.ToArray();
     }
 
-    private static async Task<ProcessResult> CompileFile(byte[] assemblyData, ITemplateEngine engine, GlobalBuildState buildState, string @namespace, string className, bool isLibrary)
+    private static string _runnerLocation = null;
+
+    private static async Task<string> LocateRunner()
     {
-        if (!isLibrary)
+        if (_runnerLocation != null)
+            return _runnerLocation;
+
+        const string exeName = "BitMagic.TemplateEngine.Runner.exe";
+        var path = Environment.GetEnvironmentVariable("BitMagic.TemplateEngine.Runner");
+
+        if (path != null)
         {
-            Template.StartProject();
+            path = Path.Combine(path, exeName);
 
-            var runner = AppDomain.CurrentDomain.CreateInstance($"{@namespace}.dll", $"{@namespace}.{className}").Unwrap() as ITemplateRunner;
-
-            if (runner == null)
-                throw new Exception($"{className} is not a ITemplateRunner");
-
-            runner.Initialise();
-            await runner.Execute();
+            if (File.Exists(path))
+            {
+                _runnerLocation = path;
+                return path;
+            }
         }
 
-        return new ProcessResult(engine.Beautify(Template.GenerateCode()), assemblyData, buildState.References, @namespace, className);
+        var d = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+        path = Path.Combine(d, exeName);
+
+        if (File.Exists(path))
+        {
+            _runnerLocation = path;
+            return path;
+        }
+
+        using var process = new Process();
+
+        process.StartInfo.FileName = "dotnet";
+        process.StartInfo.Arguments = "tool install --tool-path . BitMagic.TemplateRunner";
+        process.StartInfo.WorkingDirectory = d;
+
+        process.Start();
+        await process.WaitForExitAsync();
+
+        path = Path.Combine(d, exeName);
+
+        if (File.Exists(path))
+        {
+            _runnerLocation = path;
+            return path;
+        }
+
+        throw new Exception("Cannot find 'BitMagic.TemplateEngine.Runner.exe', consider manually installing and adding evironment variable 'BitMagic.TemplateEngine.Runner' to the path.");
+    }
+
+    private static async Task<ProcessResult> CompileFile(byte[] assemblyData, ITemplateEngine engine, GlobalBuildState buildState, string @namespace, string className, bool isLibrary)
+    {
+        string code = "";
+
+        if (isLibrary)
+            return new ProcessResult(new SourceResult(code, Array.Empty<ISourceResultMap>()), assemblyData, buildState.References, @namespace, className);
+
+        var exePath = await LocateRunner();
+        var sb = new StringBuilder();
+
+        sb.Append("-l ");
+
+        foreach (var i in buildState.BinaryFilenames)
+        {
+            sb.Append($"\"{i}\" ");
+        }
+
+        sb.Append("-n ");
+        sb.Append(@namespace);
+        sb.Append(" -c ");
+        sb.Append(@className);
+        sb.Append(" -b \"");
+        sb.Append(Directory.GetCurrentDirectory());
+        sb.Append("\"");
+
+        var arguments = sb.ToString();
+
+        using var process = new Process();
+
+        process.StartInfo.FileName = exePath;
+        process.StartInfo.Arguments = arguments;
+        process.StartInfo.RedirectStandardError = true;
+        process.StartInfo.RedirectStandardOutput = true;
+        process.StartInfo.UseShellExecute = false;
+        process.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
+        process.StartInfo.WorkingDirectory = Path.GetDirectoryName(exePath); // Assembly.GetExecutingAssembly().Location);
+
+        process.Start();
+
+        var stdOut = process.StandardOutput;
+        var stdErr = process.StandardError;
+
+        var r = stdOut.ReadToEnd();
+        var er = stdErr.ReadToEnd();
+
+        if (!string.IsNullOrEmpty(er))
+        {
+            throw new Exception("Exception in the runner: \n" + er);
+        }
+
+        await process.WaitForExitAsync();
+
+        var result = JsonConvert.DeserializeObject<SourceResult>(r, new JsonSerializerSettings() { TypeNameHandling = TypeNameHandling.Auto });
+
+        return new ProcessResult(result, assemblyData, buildState.References, @namespace, className);
     }
 
     public class ProcessResult : ISourceFile
@@ -508,7 +601,7 @@ public static class MacroAssembler
         public ProcessResult(ISourceResult source, byte[] compiledData, IEnumerable<ProcessResult> references, string @namespace, string classname)
         {
             Source = source;
-            CompiledData = compiledData;
+            CompiledData = compiledData; // do we need the .net data??
             References = references.ToArray();
             Classname = classname;
             Namespace = @namespace;
