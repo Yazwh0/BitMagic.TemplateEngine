@@ -36,7 +36,7 @@ public static class Helper
             }
         }
 
-        Template.WriteLiteral(sb.ToString());
+        Template.WriteLiteral(sb.ToString(), 0, "");
     }
 
     public static void Bytes(string stringData)
@@ -69,7 +69,7 @@ public static class Helper
             }
         }
 
-        Template.WriteLiteral(sb.ToString());
+        Template.WriteLiteral(sb.ToString(), 0, "");
     }
 
     public static void Words(IEnumerable<short> words, int width = 16)
@@ -99,7 +99,7 @@ public static class Helper
             }
         }
 
-        Template.WriteLiteral(sb.ToString());
+        Template.WriteLiteral(sb.ToString(), 0, "");
     }
 
     //    .byte $0C, $08              ; $080C - pointer to next line of BASIC code

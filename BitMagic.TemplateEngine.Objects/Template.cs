@@ -6,19 +6,11 @@ public static class Template
 {
     internal static readonly StringBuilder _output = new();
     internal static readonly List<ISourceResultMap> _map = new();
-    internal static int _linenumber;
-    internal static string _sourceFile = "";
 
-    public static void SetSourceMap(string sourceFile, int linenumber)
-    {
-        _linenumber = linenumber;
-        _sourceFile = sourceFile;
-    }
-
-    public static void WriteLiteral(string literal)
+    public static void WriteLiteral(string literal, int lineNumber, string sourceFile)
     {
         _output.AppendLine(literal);
-        _map.Add(new SourceResultMap(_linenumber, _sourceFile));
+        _map.Add(new SourceResultMap(string.IsNullOrWhiteSpace(sourceFile) ? -1 : lineNumber, sourceFile));
     }
 
     public static void StartProject()

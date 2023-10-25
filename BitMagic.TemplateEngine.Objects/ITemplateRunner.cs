@@ -1,6 +1,4 @@
-﻿using System.Text.Json.Serialization;
-
-namespace BitMagic.TemplateEngine.Objects;
+﻿namespace BitMagic.TemplateEngine.Objects;
 
 public interface ITemplateRunner
 {

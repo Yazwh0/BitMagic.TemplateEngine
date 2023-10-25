@@ -8,7 +8,7 @@ namespace BitMagic.TemplateEngine
     public interface ITemplateEngine
     {
         string TemplateName { get; }
-        ProcessResult Process(string input, int startLine, int lineAdust, string sourceFileName, bool isLibrary);
+        ProcessResult Process(IEnumerable<string> lines, int startLine, int lineAdust, string sourceFileName, bool isLibrary);
         ISourceResult Beautify(ISourceResult input);
         public IEnumerable<string> Namespaces { get; }
         public IEnumerable<Assembly> Assemblies { get; }
@@ -43,10 +43,10 @@ namespace BitMagic.TemplateEngine
             TidyMarker = tidyMarker;
         }
 
-        public ProcessResult Process(string input, int startLine, int lineAdust, string sourceFileName, bool isLibrary)
+        public ProcessResult Process(IEnumerable<string> lines, int startLine, int lineAdust, string sourceFileName, bool isLibrary)
         {
             int lineNumber = -startLine - lineAdust;// + lineAdust; // was +2!
-            var lines = input.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+            //var lines = input.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
             var sb = new StringBuilder();
             var map = new List<int>();
 
@@ -63,15 +63,15 @@ namespace BitMagic.TemplateEngine
 
                         if (match.Success)
                         {
-                            map.Add(0);
-                            sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetSourceMap(@\"{sourceFileName}\", {lineNumber + lineAdust});");
+                            //map.Add(0);
+                            //sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetSourceMap(@\"{sourceFileName}\", {lineNumber + lineAdust});");
 
                             map.Add(lineNumber);
-                            sb.AppendLine(ProcessAsmLine(match.Value));
+                            sb.AppendLine(ProcessAsmLine(match.Value, lineNumber + lineAdust, sourceFileName));
 
                             lineNumber++;
-                            sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetSourceMap(@\"{sourceFileName}\", {lineNumber + lineAdust});");
-                            map.Add(0);
+                            //sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetSourceMap(@\"{sourceFileName}\", {lineNumber + lineAdust});");
+                            //map.Add(0);
                         }
                         // perform change
                         matched = true;
@@ -85,8 +85,8 @@ namespace BitMagic.TemplateEngine
                     sb.AppendLine(line);
                     if (lineNumber == 1 && !isLibrary)
                     {
-                        sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetSourceMap(@\"{sourceFileName}\", {lineNumber + lineAdust});");
-                        map.Add(0);
+                        //sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetSourceMap(@\"{sourceFileName}\", {lineNumber + lineAdust});");
+                        //map.Add(0);
                     }
                     lineNumber++;
                 }
@@ -95,7 +95,7 @@ namespace BitMagic.TemplateEngine
             return new ProcessResult(sb.ToString(), map);
         }
 
-        public string ProcessAsmLine(string input)
+        public string ProcessAsmLine(string input, int lineNumber, string sourceFile)
         {
             var output = input;
 
@@ -124,7 +124,7 @@ namespace BitMagic.TemplateEngine
                     output = "";
             }
 
-            return $"BitMagic.TemplateEngine.Objects.Template.WriteLiteral($@\"{output}\");";
+            return $"BitMagic.TemplateEngine.Objects.Template.WriteLiteral($@\"{output}\", {lineNumber}, @\"{sourceFile}\");";
         }
 
         public ISourceResult Beautify(ISourceResult input) => _beautify(input);
