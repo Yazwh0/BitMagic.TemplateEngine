@@ -45,7 +45,7 @@ namespace BitMagic.TemplateEngine
 
         public ProcessResult Process(IEnumerable<string> lines, int startLine, int lineAdust, string sourceFileName, bool isLibrary)
         {
-            int lineNumber = -startLine - lineAdust;// + lineAdust; // was +2!
+            int lineNumber = -startLine;// - lineAdust;// + lineAdust; // was +2!
             //var lines = input.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
             var sb = new StringBuilder();
             var map = new List<int>();
@@ -67,7 +67,7 @@ namespace BitMagic.TemplateEngine
                             //sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetSourceMap(@\"{sourceFileName}\", {lineNumber + lineAdust});");
 
                             map.Add(lineNumber);
-                            sb.AppendLine(ProcessAsmLine(match.Value, lineNumber + lineAdust, sourceFileName));
+                            sb.AppendLine(ProcessAsmLine(match.Value, lineNumber + lineAdust - 1, sourceFileName));
 
                             lineNumber++;
                             //sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetSourceMap(@\"{sourceFileName}\", {lineNumber + lineAdust});");
