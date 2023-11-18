@@ -8,7 +8,7 @@ namespace BitMagic.TemplateEngine
     public interface ITemplateEngine
     {
         string TemplateName { get; }
-        ProcessResult Process(IEnumerable<string> lines, int startLine, int lineAdust, string sourceFileName, bool isLibrary);
+        ProcessResult Process(IEnumerable<string> lines, int startLine, string sourceFileName, bool isLibrary);
         ISourceResult Beautify(ISourceResult input);
         public IEnumerable<string> Namespaces { get; }
         public IEnumerable<Assembly> Assemblies { get; }
@@ -43,10 +43,10 @@ namespace BitMagic.TemplateEngine
             TidyMarker = tidyMarker;
         }
 
-        public ProcessResult Process(IEnumerable<string> lines, int startLine, int lineAdust, string sourceFileName, bool isLibrary)
+        public ProcessResult Process(IEnumerable<string> lines, int startLine, string sourceFileName, bool isLibrary)
         {
             int lineNumber = -startLine;// - lineAdust;// + lineAdust; // was +2!
-            //var lines = input.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+
             var sb = new StringBuilder();
             var map = new List<int>();
 
@@ -67,7 +67,7 @@ namespace BitMagic.TemplateEngine
                             //sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetSourceMap(@\"{sourceFileName}\", {lineNumber + lineAdust});");
 
                             map.Add(lineNumber);
-                            sb.AppendLine(ProcessAsmLine(match.Value, lineNumber + lineAdust - 1, sourceFileName));
+                            sb.AppendLine(ProcessAsmLine(match.Value, lineNumber - 1, sourceFileName));
 
                             lineNumber++;
                             //sb.AppendLine($"BitMagic.TemplateEngine.Objects.Template.SetSourceMap(@\"{sourceFileName}\", {lineNumber + lineAdust});");
@@ -91,6 +91,10 @@ namespace BitMagic.TemplateEngine
                     lineNumber++;
                 }
             }
+
+#if DEBUG
+            var allText = sb.ToString();
+#endif
 
             return new ProcessResult(sb.ToString(), map);
         }

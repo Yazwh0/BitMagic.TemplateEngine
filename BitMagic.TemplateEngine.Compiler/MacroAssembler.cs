@@ -201,9 +201,6 @@ public static partial class MacroAssembler
         List<string> assemblyFilenames = new();
         List<TemplateMap> map = new();
 
-        //var startLine = isLibrary ? 5 + 3 + engine.Namespaces.Count(): 11 + engine.Namespaces.Count();
-        var lineAdjust = 0;
-
         output.Add("using System;");
         output.Add("using System.Linq;");
         output.Add("using System.Collections;");
@@ -216,7 +213,6 @@ public static partial class MacroAssembler
             output.Add($"using {ns};");
         }
 
-        //output.Add($"// PreProcessor Result of {_project.Source.Filename}");
         output.Add($"namespace {@namespace}");
         output.Add("{");
 
@@ -235,22 +231,18 @@ public static partial class MacroAssembler
 
         var startLine = output.Count - 1; // zero based
 
-        ///
-        /// This has a flaw in the logic, if we ignore lines that are not at the top, the mapping wont work
-        /// Need to be able to handle these instances
-        ///
         foreach (var line in lines)
         {
             // emtpy line
             if (string.IsNullOrWhiteSpace(line))
             {
-                output.Add(line);
+                output.Add("");
                 continue;
             }
 
             if (line.StartsWith("library"))
             {
-                lineAdjust++;
+                output.Add("");
                 continue;
             }
 
@@ -285,14 +277,16 @@ public static partial class MacroAssembler
                 userHeader.Add($"using {importName.Value} = {buildState.FilenameToClassname[importFilename.Value]};");
                 initMethod.Add($"{importName.Value}.Initialise();");
                 libraries.Add($"private readonly {fullName} {importName.Value} = new();");
-                lineAdjust++;
+
+                output.Add("");
                 continue;
             }
 
             if (line.StartsWith("using"))
             {
                 userHeader.Add(line);
-                output.Add(line);
+
+                output.Add("");
                 continue;
             }
 
@@ -305,13 +299,13 @@ public static partial class MacroAssembler
                     name = name.Substring(0, name.Length - 1);
 
                 references.Add(name);
-                //output.Add(line); // do we need this..??
+
+                output.Add("");
                 continue;
             }
 
             if (line.StartsWith("assembly"))
             {
-                //output.Add(line); // do we need this..??
                 var name = line.Substring("assembly ".Length);
 
                 var idx = name.IndexOf(';');
@@ -328,6 +322,8 @@ public static partial class MacroAssembler
                     name = name.Substring(1, name.Length - 2);
 
                 assemblyFilenames.Add(name);
+
+                output.Add("");
                 continue;
             }
 
@@ -362,7 +358,7 @@ public static partial class MacroAssembler
         var allText = string.Join("\n", allLines);
 #endif
 
-        var processResult = engine.Process(allLines, startLine, lineAdjust, filename, isLibrary);
+        var processResult = engine.Process(allLines, startLine, filename, isLibrary);
 
         // this is suspect, might not work for libraries
         var cnt = 0; //  isLibrary ? 0 : 1; // this dosen't appear to make a difference
