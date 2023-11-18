@@ -235,6 +235,10 @@ public static partial class MacroAssembler
 
         var startLine = output.Count - 1; // zero based
 
+        ///
+        /// This has a flaw in the logic, if we ignore lines that are not at the top, the mapping wont work
+        /// Need to be able to handle these instances
+        ///
         foreach (var line in lines)
         {
             // emtpy line
@@ -245,7 +249,10 @@ public static partial class MacroAssembler
             }
 
             if (line.StartsWith("library"))
+            {
+                lineAdjust++;
                 continue;
+            }
 
             if (line.StartsWith("import"))
             {
@@ -349,10 +356,16 @@ public static partial class MacroAssembler
 
         startLine += userHeader.Count;
 
-        var processResult = engine.Process(userHeader.Concat(output), startLine, lineAdjust, filename, isLibrary);
+        var allLines = userHeader.Concat(output);
+
+#if DEBUG
+        var allText = string.Join("\n", allLines);
+#endif
+
+        var processResult = engine.Process(allLines, startLine, lineAdjust, filename, isLibrary);
 
         // this is suspect, might not work for libraries
-        var cnt = isLibrary ? 0 : 1; // this dosen't appear to make a difference
+        var cnt = 0; //  isLibrary ? 0 : 1; // this dosen't appear to make a difference
         for (var i = 0; i < processResult.Map.Count; i++)
         {
             if (processResult.Map[i] > 0)
