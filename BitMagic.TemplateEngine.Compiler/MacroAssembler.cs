@@ -111,8 +111,8 @@ public static partial class MacroAssembler
         return (@namespace, className, @namespace + ".dll");
     }
 
-    private static async Task<(bool Rebuild, string BinaryFilename)> RequiresBuild(ITemplateEngine engine, ISourceFile source, IReadOnlyList<string> lines, string contentAssemblyName, TemplateOptions options,
-        IEmulatorLogger logger, GlobalBuildState buildState, string indent)
+    private static async Task<(bool Rebuild, string BinaryFilename)> RequiresBuild(ITemplateEngine engine, ISourceFile source, IReadOnlyList<string> lines,
+        string contentAssemblyName, TemplateOptions options, IEmulatorLogger logger, GlobalBuildState buildState, string indent)
     {
         bool newBuild = options.Rebuild;
         // check if there are any imports which could need building
@@ -140,13 +140,38 @@ public static partial class MacroAssembler
             if (string.IsNullOrWhiteSpace(importFilename.Value))
                 continue;
 
-            if (!buildState.FilenameToClassname.ContainsKey(importFilename.Value))
-            {
-                // build
-                // create and register source file
-                // call GetAssembly
+            // build
+            // create and register source file
+            // call GetAssembly
 
-                var sourceFile = new BitMagicProjectFile(importFilename.Value.FixFilename());
+            // search for the file
+            string sourceFilename = "";
+
+            // check if its an absolute path               
+            if (File.Exists(importFilename.Value))
+            {
+                sourceFilename = importFilename.Value;
+            }
+
+            // check if its relative to the source file, if the source file is real
+            if (sourceFilename == "" && source.ActualFile && !string.IsNullOrWhiteSpace(source.Path))
+            {
+                var relativePath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source.Path), importFilename.Value));
+                if (File.Exists(relativePath))
+                    sourceFilename = relativePath;
+            }
+
+            if (string.IsNullOrWhiteSpace(sourceFilename))
+                throw new ImportNotFoundException(importFilename.Value);
+
+            sourceFilename = sourceFilename.FixFilename();
+
+            if (!buildState.ImportToFilename.ContainsKey(importFilename.Value))
+                buildState.ImportToFilename.Add(importFilename.Value, sourceFilename);
+
+            if (!buildState.FilenameToClassname.ContainsKey(sourceFilename))
+            {
+                var sourceFile = new BitMagicProjectFile(sourceFilename);
                 await sourceFile.Load();
 
                 var result = await ProcessFile(engine, sourceFile, sourceFile.Path, options, logger, buildState, "  " + indent, true);
@@ -154,8 +179,7 @@ public static partial class MacroAssembler
 
                 result.Result.SetName(filename);
                 result.Result.SetParentAndMap(sourceFile);
-
-                buildState.FilenameToClassname.Add(importFilename.Value, $"{result.Result.Namespace}.{result.Result.Classname}");
+                buildState.FilenameToClassname.Add(sourceFilename, $"{result.Result.Namespace}.{result.Result.Classname}");
                 buildState.References.Add(result.Result);
 
                 buildState.SourceFiles.Add(sourceFile);
@@ -270,13 +294,14 @@ public static partial class MacroAssembler
                 if (string.IsNullOrWhiteSpace(importFilename.Value))
                     throw new ImportParseException($"Incorrect syntax in '{line}' blank filename");
 
-                if (!buildState.FilenameToClassname.ContainsKey(importFilename.Value))
+                if (!buildState.ImportToFilename.ContainsKey(importFilename.Value))
                     throw new ImportParseException($"File '{importFilename.Value}' does not appear to have been built.");
 
-                var fullName = buildState.FilenameToClassname[importFilename.Value];
-                userHeader.Add($"using {importName.Value} = {buildState.FilenameToClassname[importFilename.Value]};");
+                var actualFile = buildState.ImportToFilename[importFilename.Value];
+                var importClassName = buildState.FilenameToClassname[actualFile];
+                userHeader.Add($"using {importName.Value} = {importClassName};");
                 initMethod.Add($"{importName.Value}.Initialise();");
-                libraries.Add($"private readonly {fullName} {importName.Value} = new();");
+                libraries.Add($"private readonly {importClassName} {importName.Value} = new();");
 
                 output.Add("");
                 continue;
@@ -387,6 +412,7 @@ public static partial class MacroAssembler
     {
         // Eg 'vera.bmasm' -> 'BitMagic.Vera.Template'
         public Dictionary<string, string> FilenameToClassname { get; } = new();
+        public Dictionary<string, string> ImportToFilename { get; } = new();
         public List<ProcessResult> References { get; } = new();
         public IEnumerable<ProcessResult> AllReferences => References.Union(References.SelectMany(i => i.References));
         public List<string> BinaryFilenames { get; } = new();
