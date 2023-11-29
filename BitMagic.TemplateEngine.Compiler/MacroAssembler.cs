@@ -492,7 +492,7 @@ public static partial class MacroAssembler
 
                 for (var i = 0; i < content.CodeMap.Count; i++)
                 {
-                    if (content.CodeMap[i].GeneratedLine == location.StartLinePosition.Line + 1)
+                    if (content.CodeMap[i].GeneratedLine == location.StartLinePosition.Line)
                     {
                         lineNumber = content.CodeMap[i].OriginalLine;
                         break;
