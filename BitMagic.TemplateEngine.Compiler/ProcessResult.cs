@@ -67,6 +67,9 @@ public static partial class MacroAssembler
                     {
                         var f = _buildState.SourceFiles.FirstOrDefault(j => j.Path == i.SourceFilename);
 
+                        if (f == null)
+                            throw new ImportParseException($"Cannot find file {i.SourceFilename} in build state, referenced in {parent.Name}, need a rebuild?");
+
                         parentFiles.Add(f);
                         lookup.Add(f.Path);
 
