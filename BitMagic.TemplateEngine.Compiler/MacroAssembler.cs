@@ -116,7 +116,7 @@ public static partial class MacroAssembler
     {
         bool newBuild = options.Rebuild;
         // check if there are any imports which could need building
-        foreach (var import in lines.Where(i => i.StartsWith("import")))
+        foreach (var import in lines.Where(i => i.Trim().StartsWith("import")))
         {
             var regexResult = _importRegex.Matches(import);
 
@@ -203,7 +203,7 @@ public static partial class MacroAssembler
         return (File.GetLastWriteTimeUtc(binaryFilename) < File.GetLastWriteTimeUtc(source.Path), binaryFilename);
     }
 
-    private static Regex _importRegex = new Regex(@"^import (?<importName>[\w]+)\s*=\s*\""(?<filename>[\/\\\w\-.: ]+)\""\s*\;", RegexOptions.Compiled);
+    private static Regex _importRegex = new Regex(@"^\s*import (?<importName>[\w]+)\s*=\s*\""(?<filename>[\/\\\w\-.: ]+)\""\s*\;", RegexOptions.Compiled);
 
     /// <summary>
     /// Takes a source file and creates c# file that can be compiled
@@ -255,8 +255,9 @@ public static partial class MacroAssembler
 
         var startLine = output.Count - 1; // zero based
 
-        foreach (var line in lines)
+        foreach (var originalLine in lines)
         {
+            var line = originalLine.Trim();
             // emtpy line
             if (string.IsNullOrWhiteSpace(line))
             {
@@ -352,7 +353,7 @@ public static partial class MacroAssembler
                 continue;
             }
 
-            output.Add(line);
+            output.Add(originalLine);
         }
 
         if (isLibrary)
