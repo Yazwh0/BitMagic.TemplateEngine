@@ -154,15 +154,16 @@ public static partial class MacroAssembler
             }
 
             // check if its relative to the source file, if the source file is real
+            var searched = "";
             if (sourceFilename == "" && source.ActualFile && !string.IsNullOrWhiteSpace(source.Path))
             {
-                var relativePath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source.Path), importFilename.Value));
-                if (File.Exists(relativePath))
-                    sourceFilename = relativePath;
+                searched = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source.Path), importFilename.Value));
+                if (File.Exists(searched))
+                    sourceFilename = searched;
             }
 
             if (string.IsNullOrWhiteSpace(sourceFilename))
-                throw new ImportNotFoundException(importFilename.Value);
+                throw new ImportNotFoundException(importFilename.Value, searched);
 
             sourceFilename = sourceFilename.FixFilename();
 

@@ -49,6 +49,6 @@ public class ImportParseException : TemplateException
 
 public class ImportNotFoundException : TemplateException
 {
-    public ImportNotFoundException(string filename) : base($"Import file not found : '{filename}'")
+    public ImportNotFoundException(string filename, string searched) : base($"Import file not found : '{filename}', seached '{searched}'.")
     { }
 }
