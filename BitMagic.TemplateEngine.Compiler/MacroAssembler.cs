@@ -53,7 +53,7 @@ public static partial class MacroAssembler
         byte[] assemblyData;
         if (requireBuild)
         {
-            logger.LogLine($"{indent}Building assembly '{binaryFilename}'");
+            logger.LogLine($"{indent}Building assembly '{Path.GetFileNameWithoutExtension(binaryFilename)}'");
             var templateDefinition = CreateTemplate(engine, lines, filename, buildState, @namespace, classname, isLibrary);
             assemblyData = CreateAssembly(templateDefinition, assemblyName, engine, logger, buildState, indent);
 
@@ -65,7 +65,7 @@ public static partial class MacroAssembler
         }
         else
         {
-            logger.LogLine($"{indent}Loading assembly '{binaryFilename}'");
+            logger.LogLine($"{indent}Loading assembly '{Path.GetFileNameWithoutExtension(binaryFilename)}'");
 
             assemblyData = await File.ReadAllBytesAsync(binaryFilename);
             buildState.BinaryFilenames.Add(binaryFilename);
