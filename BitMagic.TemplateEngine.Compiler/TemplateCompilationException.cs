@@ -49,6 +49,6 @@ public class ImportParseException : TemplateException
 
 public class ImportNotFoundException : TemplateException
 {
-    public ImportNotFoundException(string filename, string searched, string path) : base($"Import file not found : '{filename}', searched '{searched}', starting path '{path}'.")
+    public ImportNotFoundException(string filename, IEnumerable<string> searched, string path) : base($"Import file not found : '{filename}', searched {string.Join(", ", searched.Select(i => $"\"{i}\""))}, starting path '{path}'.")
     { }
 }

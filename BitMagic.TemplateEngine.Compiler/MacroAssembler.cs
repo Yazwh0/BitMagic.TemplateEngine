@@ -146,20 +146,33 @@ public static partial class MacroAssembler
 
             // search for the file
             string sourceFilename = "";
+            var searched = new List<string>();
 
             // check if its an absolute path               
             if (File.Exists(importFilename.Value))
             {
                 sourceFilename = importFilename.Value;
             }
+            else
+            {
+                searched.Add(Path.GetFullPath(importFilename.Value));
+            }
 
             // check if its relative to the source file, if the source file is real
-            var searched = "";
-            if (sourceFilename == "" && !string.IsNullOrWhiteSpace(source.Path))
+            if (string.IsNullOrWhiteSpace(sourceFilename) && !string.IsNullOrWhiteSpace(source.Path))
             {
-                searched = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source.Path), importFilename.Value));
-                if (File.Exists(searched))
-                    sourceFilename = searched;
+                var thisPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source.Path), importFilename.Value));
+                searched.Add(thisPath);
+                if (File.Exists(thisPath))
+                    sourceFilename = thisPath;
+            }
+
+            if (string.IsNullOrWhiteSpace(sourceFilename) && string.IsNullOrWhiteSpace(Path.GetDirectoryName(importFilename.Value)))
+            {
+                var thisPath = Path.GetFullPath(Path.Combine("library", importFilename.Value));
+                searched.Add(thisPath);
+                if (File.Exists(thisPath))
+                    sourceFilename = thisPath;
             }
 
             if (string.IsNullOrWhiteSpace(sourceFilename))
@@ -176,7 +189,7 @@ public static partial class MacroAssembler
                 await sourceFile.Load();
 
                 var result = await ProcessFile(engine, sourceFile, sourceFile.Path, options, logger, buildState, "  " + indent, true);
-                var filename = (Path.GetFileNameWithoutExtension(sourceFile.Path) + ".generated.bmasm").FixFilename();
+                var filename = (Path.GetFileNameWithoutExtension(sourceFile.Path) + ".generated.bmasm"); //.FixFilename();
 
                 result.Result.SetName(filename);
                 result.Result.SetParentAndMap(sourceFile);

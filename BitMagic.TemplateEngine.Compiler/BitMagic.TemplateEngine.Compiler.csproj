@@ -9,6 +9,16 @@
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <Optimize>true</Optimize>
   </PropertyGroup>
+  
+  <ItemGroup>
+    <None Remove="Library\BM.bmasm" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Content Include="Library\BM.bmasm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.7.0" />
@@ -19,7 +29,6 @@
     <ProjectReference Include="..\..\BitMagic.Libraries\BitMagic.Common\BitMagic.Common.csproj" />
     <ProjectReference Include="..\..\BitMagic.X16Compiler\BitMagic.Compiler\BitMagic.Compiler.csproj" />
     <ProjectReference Include="..\BitMagic.TemplateEngine.Objects\BitMagic.TemplateEngine.Objects.csproj" />
-    <!--<ProjectReference Include="..\BitMagic.TemplateEngine.Runner\BitMagic.TemplateEngine.Runner.csproj" />-->
     <ProjectReference Include="..\Bitmagic.TemplateEngine\BitMagic.TemplateEngine.csproj" />
   </ItemGroup>
   
