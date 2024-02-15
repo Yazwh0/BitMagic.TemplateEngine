@@ -169,7 +169,7 @@ public static partial class MacroAssembler
 
             if (string.IsNullOrWhiteSpace(sourceFilename) && string.IsNullOrWhiteSpace(Path.GetDirectoryName(importFilename.Value)))
             {
-                var thisPath = Path.GetFullPath(Path.Combine("library", importFilename.Value));
+                var thisPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "", "library", importFilename.Value));
                 searched.Add(thisPath);
                 if (File.Exists(thisPath))
                     sourceFilename = thisPath;
