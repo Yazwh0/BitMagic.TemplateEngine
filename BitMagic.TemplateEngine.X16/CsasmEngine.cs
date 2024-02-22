@@ -16,6 +16,7 @@ public static class CsasmEngine
             .WithUnderlying(new Regex(@"^\s*(?<line>([\.;].*))$", RegexOptions.Compiled))
             // imbedded csharp, eg lda @( csharp_variable ) - https://stackoverflow.com/questions/17003799/what-are-regular-expression-balancing-groups
             .WithCSharpInline(new Regex(@"(?<csharp>(@[^\s](?:[^\(\)]|(?<open>\()|(?<-open>\)))+(?(open)(?!))\)))", RegexOptions.Compiled), new Regex(@"(@\()(?<csharp>(.*))(\))", RegexOptions.Compiled))
+            .WithCSharpRawVariablePrefix("@")
             .WithBeautifier(Beautify)
             //.WithNamespace("BM = BitMagic.TemplateEngine.X16.Helper")
             //.WithAssembly(typeof(Helper).Assembly)

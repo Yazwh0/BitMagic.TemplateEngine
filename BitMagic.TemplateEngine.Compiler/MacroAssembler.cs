@@ -218,6 +218,7 @@ public static partial class MacroAssembler
     }
 
     private static Regex _importRegex = new Regex(@"^\s*import (?<importName>[\w]+)\s*=\s*\""(?<filename>[\/\\\w\-.: ]+)\""\s*\;", RegexOptions.Compiled);
+    private static Regex _includeRegex = new Regex(@"^\s*include \s*\""(?<filename>[\/\\\w\-.: ]+)\""\s*\;");
 
     /// <summary>
     /// Takes a source file and creates c# file that can be compiled
@@ -238,6 +239,7 @@ public static partial class MacroAssembler
         List<string> references = new();
         List<string> assemblyFilenames = new();
         List<TemplateMap> map = new();
+        List<string> includedCode = new();
 
         output.Add("using System;");
         output.Add("using System.Linq;");
@@ -268,6 +270,7 @@ public static partial class MacroAssembler
         }
 
         var startLine = output.Count - 1; // zero based
+        var processingHeader = true;
 
         foreach (var originalLine in lines)
         {
@@ -322,7 +325,36 @@ public static partial class MacroAssembler
                 continue;
             }
 
-            if (line.StartsWith("using"))
+            if (line.StartsWith("include"))
+            {
+                var regexResult = _includeRegex.Matches(line);
+
+                if (regexResult.Count != 1)
+                    throw new IncludeParseException($"Incorrect syntax in '{line}' (1)");
+
+                var match = regexResult[0];
+
+                if (!match.Success)
+                    throw new IncludeParseException($"Incorrect syntax in '{line}' (2)");
+
+                if (!match.Groups.TryGetValue("filename", out Group includeName))
+                    throw new IncludeParseException($"Incorrect syntax in '{line}' (3)");
+
+                if (string.IsNullOrWhiteSpace(includeName.Value))
+                    throw new IncludeParseException($"Incorrect syntax in '{line}' blank includename");
+
+                var baseDir = Path.GetDirectoryName(filename);
+                var fullPath = Path.Combine(baseDir, includeName.Value);
+
+                if (!File.Exists(fullPath))
+                    throw new IncludeParseException($"Cannot find file '{fullPath}'");
+
+                includedCode.Add(fullPath);
+                output.Add("");
+                continue;
+            }
+
+            if (line.StartsWith("using") && processingHeader)
             {
                 userHeader.Add(line);
 
@@ -367,6 +399,8 @@ public static partial class MacroAssembler
                 continue;
             }
 
+            processingHeader = false;
+
             output.Add(originalLine);
         }
 
@@ -410,12 +444,13 @@ public static partial class MacroAssembler
             cnt++;
         }
 
-        return new PreProcessResult(references, assemblyFilenames, processResult.Code, map, filename, @namespace, className);
+        return new PreProcessResult(references, assemblyFilenames, includedCode, processResult.Code, map, filename, @namespace, className);
     }
 
     private sealed record class PreProcessResult(
             List<string> References,
             List<string> AssemblyFilenames,
+            List<string> Includes,
             string Content,
             IList<TemplateMap> CodeMap,
             string Filename,
@@ -444,7 +479,14 @@ public static partial class MacroAssembler
         if (toProcess == null)
             throw new ArgumentNullException(nameof(toProcess));
 
-        var syntaxTree = CSharpSyntaxTree.ParseText(toProcess);
+
+        var syntaxTrees = new List<SyntaxTree>();
+        syntaxTrees.Add(CSharpSyntaxTree.ParseText(toProcess));
+
+        foreach(var i in content.Includes)
+        {
+            syntaxTrees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(i)));
+        }
 
         var assemblies = new List<Assembly>();
 
@@ -483,7 +525,7 @@ public static partial class MacroAssembler
 
         CSharpCompilation compilation = CSharpCompilation.Create(
             contentAssemblyName,
-            new[] { syntaxTree },
+            syntaxTrees,
             assemblies.Select(i => MetadataReference.CreateFromFile(i.Location)).Union(builtMetadata),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 

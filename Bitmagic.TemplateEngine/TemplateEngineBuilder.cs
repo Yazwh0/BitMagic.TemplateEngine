@@ -13,6 +13,7 @@ public interface ITemplateEngineBuilder
     public ITemplateEngineBuilder WithBeautifier(Func<ISourceResult, ISourceResult> beautify);
     public ITemplateEngineBuilder WithNamespace(string namespaceLine);
     public ITemplateEngineBuilder WithAssembly(Assembly assembly);
+    public ITemplateEngineBuilder WithCSharpRawVariablePrefix(string variable);
 }
 
 public static class TemplateEngineBuilder
@@ -33,6 +34,7 @@ public class TemplateEngineBuilderStep : ITemplateEngineBuilder
     internal Func<ISourceResult, ISourceResult> _beautify = (x) => x;
     internal List<string> _namespaces = new();
     internal List<Assembly> _assemblies = new();
+    internal List<string> _prefixes = new();
 
     internal TemplateEngineBuilderStep(string name)
     {
@@ -76,8 +78,14 @@ public class TemplateEngineBuilderStep : ITemplateEngineBuilder
         return this;
     }
 
+    public ITemplateEngineBuilder WithCSharpRawVariablePrefix(string variablePrefix)
+    {
+        _prefixes.Add(variablePrefix);
+        return this;
+    }
+
     public ITemplateEngine Build()
     {
-        return new TemplateEngine(_name, _asmLines, _csharpLines, _beautify, _namespaces, _assemblies, _requiresTidyup, _tidyMarker);
+        return new TemplateEngine(_name, _asmLines, _csharpLines, _beautify, _namespaces, _assemblies, _prefixes, _requiresTidyup, _tidyMarker);
     }
 }

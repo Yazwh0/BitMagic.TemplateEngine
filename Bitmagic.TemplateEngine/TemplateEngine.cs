@@ -23,6 +23,7 @@ namespace BitMagic.TemplateEngine
         private readonly Func<ISourceResult, ISourceResult> _beautify;
         private readonly string[] _namespaces;
         private readonly Assembly[] _assemblies;
+        private readonly string[] _variablePrefixes;
 
         public string TemplateName { get; }
         public bool RequiresTidyup { get; }
@@ -31,12 +32,14 @@ namespace BitMagic.TemplateEngine
         public IEnumerable<Assembly> Assemblies => _assemblies;
 
         internal TemplateEngine(string name, IEnumerable<Regex> lineParsers, IEnumerable<(Regex Search, Regex Substitute)> inLineParsers,
-            Func<ISourceResult, ISourceResult> beautify, IEnumerable<string> namespaces, IEnumerable<Assembly> assemblies, bool requiresTidyup = false, string tidyMarker = "")
+            Func<ISourceResult, ISourceResult> beautify, IEnumerable<string> namespaces, IEnumerable<Assembly> assemblies, IEnumerable<string> variablePrefixs, bool requiresTidyup = false, string tidyMarker = "")
         {
             TemplateName = name;
             _namespaces = namespaces.ToArray();
             _lineParsers = lineParsers.ToArray();
             _inLineCSharp = inLineParsers.ToArray();
+            _variablePrefixes = variablePrefixs.ToArray();
+
             _assemblies = assemblies.ToArray();
             _beautify = beautify;
             RequiresTidyup = requiresTidyup;
@@ -77,6 +80,17 @@ namespace BitMagic.TemplateEngine
                         matched = true;
                         break;
                     }
+                }
+
+                var raw = line.Trim();
+                var prefix = _variablePrefixes.FirstOrDefault(i => raw.StartsWith(i));
+
+                if (prefix != null)
+                {
+                    map.Add(lineNumber);
+                    sb.AppendLine(ProcessVariableLine(raw.Substring(prefix.Length), lineNumber - 1, sourceFileName));
+
+                    matched = true;
                 }
 
                 if (!matched)
@@ -129,6 +143,11 @@ namespace BitMagic.TemplateEngine
             }
 
             return $"BitMagic.TemplateEngine.Objects.Template.WriteLiteral($@\"{output}\", {lineNumber}, @\"{sourceFile}\");";
+        }
+
+        public string ProcessVariableLine(string input, int lineNumber, string sourceFile)
+        {
+            return $"BitMagic.TemplateEngine.Objects.Template.WriteLiteral({input}, {lineNumber}, @\"{sourceFile}\");";
         }
 
         public ISourceResult Beautify(ISourceResult input) => _beautify(input);
