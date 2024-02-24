@@ -19,7 +19,6 @@ if (result.Errors.Any())
 
 try
 {
-
     var basePath = Path.GetFullPath(result.Value.BasePath);
 
     foreach (var i in result.Value.Assemblies)
@@ -28,6 +27,9 @@ try
     }
 
     Template.StartProject();
+
+    if (!string.IsNullOrWhiteSpace(result.Value.SourcePath))
+        Directory.SetCurrentDirectory(result.Value.SourcePath);
 
     var @namespace = result.Value.Namespace;
     var classname = result.Value.Classname;

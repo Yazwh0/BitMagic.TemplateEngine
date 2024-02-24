@@ -94,5 +94,20 @@ public static partial class MacroAssembler
         {
             return Task.CompletedTask;
         }
+
+        public override int AddParent(ISourceFile parent)
+        {
+            var p = parent as SourceFileBase;
+            if (p == null)
+                throw new ArgumentException("parent must be a SourceFileBase", nameof(parent));
+
+            _parents.Add(p);
+            return _parents.Count - 1;
+        }
+
+        public override void SetParentMap(int lineNumber, int parentLineNumber, int parentId)
+        {
+            _parentMap[lineNumber] = new ParentSourceMapReference(parentLineNumber, parentId);
+        }
     }
 }

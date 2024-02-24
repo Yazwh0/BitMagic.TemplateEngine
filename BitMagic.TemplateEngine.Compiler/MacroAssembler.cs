@@ -39,7 +39,7 @@ public static partial class MacroAssembler
         IEmulatorLogger logger, GlobalBuildState buildState, string indent, bool isLibrary)
     {
         var (assemblyData, @namespace, classname, requireBuild) = await GetAssembly(engine, source, filename, options, logger, buildState, indent, isLibrary);
-        return (await CompileFile(assemblyData, buildState, @namespace, classname, isLibrary), requireBuild);
+        return (await CompileFile(assemblyData, buildState, filename, @namespace, classname, isLibrary), requireBuild);
     }
 
     private static async Task<(byte[] AssembleyData, string Namespace, string Classname, bool RequireBuild)> GetAssembly(this ITemplateEngine engine, ISourceFile source,
@@ -621,7 +621,7 @@ public static partial class MacroAssembler
         throw new Exception("Cannot find 'BitMagic.TemplateEngine.Runner.exe', consider manually installing and adding evironment variable 'BitMagic.TemplateEngine.Runner' to the path.");
     }
 
-    private static async Task<ProcessResult> CompileFile(byte[] assemblyData, GlobalBuildState buildState, string @namespace, string className, bool isLibrary)
+    private static async Task<ProcessResult> CompileFile(byte[] assemblyData, GlobalBuildState buildState, string sourceFilename, string @namespace, string className, bool isLibrary)
     {
         string code = "";
 
@@ -638,12 +638,17 @@ public static partial class MacroAssembler
             sb.Append($"\"{i}\" ");
         }
 
+        var sourcePath = Path.GetFullPath(Path.GetDirectoryName(sourceFilename));
+
         sb.Append("-n ");
         sb.Append(@namespace);
         sb.Append(" -c ");
         sb.Append(@className);
         sb.Append(" -b \"");
         sb.Append(Directory.GetCurrentDirectory());
+        sb.Append("\"");
+        sb.Append(" -s \"");
+        sb.Append(sourcePath);
         sb.Append("\"");
 
         var arguments = sb.ToString();

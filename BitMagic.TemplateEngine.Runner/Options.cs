@@ -15,4 +15,7 @@ internal class Options
 
     [Option('c', HelpText = "Classname.")]
     public string Classname { get; set; } = "";
+
+    [Option('s', HelpText = "Source Path")]
+    public string SourcePath { get; set; } = "";
 }
