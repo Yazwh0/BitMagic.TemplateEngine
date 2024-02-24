@@ -3,12 +3,12 @@ using Ca65LibParser;
 
 include "cc65LibParser.cs";
 
-public static Cc65Lib Parse(string filename, string scope)
+public static Cc65Obj Parse(string filename, string scope)
 {
     return Cc65LibParser.Parse(filename, scope);
 }
 
-public static void Exports(Cc65Lib lib)
+public static void Exports(Cc65Obj lib)
 {
     foreach(var i in lib.GenerateExportsStrings())
     {
@@ -16,7 +16,7 @@ public static void Exports(Cc65Lib lib)
     }
 }
 
-public static void Code(string segmentName, Cc65Lib lib)
+public static void Code(string segmentName, Cc65Obj lib)
 {
     foreach(var i in lib.GenerateCodeStrings(segmentName))
     {
