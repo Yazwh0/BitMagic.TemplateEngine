@@ -11,11 +11,21 @@
   </PropertyGroup>
   
   <ItemGroup>
+    <Compile Remove="Library\cc65LibParser.cs" />
+  </ItemGroup>
+  
+  <ItemGroup>
     <None Remove="Library\BM.bmasm" />
   </ItemGroup>
   
   <ItemGroup>
     <Content Include="Library\BM.bmasm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Content Include="Library\cc65LibParser.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
