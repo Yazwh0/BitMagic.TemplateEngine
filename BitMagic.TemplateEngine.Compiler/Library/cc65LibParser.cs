@@ -7,22 +7,54 @@ namespace Ca65LibParser;
 
 public static class Cc65LibParser
 {
-    private static uint _cc65Header = 0x616E7A55;
+    private const uint _objectHeader = 0x616E7A55;
+    private const uint _libraryHeader = 0x7A55616E;
 
-    public static Cc65Lib Parse(string filename, string scopeName)
+    public static Cc65Obj Parse(string filename, string scopeName)
     {
-        var toReturn = new Cc65Lib() { ScopeName = scopeName, Filename = filename };
-
         if (!File.Exists(filename))
             throw new FileNotFoundException(filename);
 
         using var fs = new FileStream(filename, FileMode.Open);
         using var reader = new BinaryReader(fs);
 
-        uint header = reader.ReadUInt32();
+        var header = reader.ReadUInt32();
+        Cc65Obj? toReturn = null;
 
-        if (header != _cc65Header)
-            throw new Exception("Not a lib file");
+        if (header == _libraryHeader)
+        {
+            var lib = ReadLibrary(reader);
+            header = reader.ReadUInt32();
+        }
+
+        if (header != _objectHeader)
+            throw new Exception($"File {filename} is not a recognised file.");
+
+        toReturn = ReadObject(reader, scopeName, filename);
+
+        reader.Close();
+        fs.Close();
+
+        return toReturn;
+    }
+
+    private static Cc65Lib ReadLibrary(BinaryReader reader)
+    {
+        var toReturn = new Cc65Lib();
+
+        var version = reader.ReadUInt16();
+        if (version != 0x000d)
+            throw new Exception($"{version:X2} is a unsupported lib version");
+
+        toReturn.Flags = reader.ReadUInt16();
+        toReturn.IndexOfs = reader.ReadUInt32();
+
+        return toReturn;
+    }
+
+    private static Cc65Obj ReadObject(BinaryReader reader, string scopeName, string filename)
+    {
+        var toReturn = new Cc65Obj() { ScopeName = scopeName, Offset = reader.BaseStream.Position - 4, Filename = filename };
 
         ReadHeader(reader, toReturn);
 
@@ -35,17 +67,12 @@ public static class Cc65LibParser
         ReadSegments(reader, toReturn);
         ReadExports(reader, toReturn);
 
-        reader.Close();
-        fs.Close();
-
-        //DisplayInfo(toReturn);
-
         return toReturn;
     }
 
-    public static void ReadExports(BinaryReader reader, Cc65Lib toReturn)
+    public static void ReadExports(BinaryReader reader, Cc65Obj toReturn)
     {
-        reader.BaseStream.Position = toReturn.ExportOffs;
+        reader.BaseStream.Position = toReturn.Offset + toReturn.ExportOffs;
 
         uint count = reader.ReadCc65Var();
 
@@ -95,9 +122,9 @@ public static class Cc65LibParser
         }
     }
 
-    private static void ReadSegments(BinaryReader reader, Cc65Lib toReturn)
+    private static void ReadSegments(BinaryReader reader, Cc65Obj toReturn)
     {
-        reader.BaseStream.Position = toReturn.SegOffs;
+        reader.BaseStream.Position = toReturn.Offset + toReturn.SegOffs;
 
         uint count = reader.ReadCc65Var();
 
@@ -182,9 +209,9 @@ public static class Cc65LibParser
         return toReturn;
     }
 
-    private static void ReadStringPool(BinaryReader reader, Cc65Lib toReturn)
+    private static void ReadStringPool(BinaryReader reader, Cc65Obj toReturn)
     {
-        reader.BaseStream.Position = toReturn.StrPoolOffs;
+        reader.BaseStream.Position = toReturn.Offset + toReturn.StrPoolOffs;
 
         uint count = reader.ReadCc65Var();
 
@@ -194,9 +221,9 @@ public static class Cc65LibParser
         }
     }
 
-    private static void ReadFiles(BinaryReader reader, Cc65Lib toReturn)
+    private static void ReadFiles(BinaryReader reader, Cc65Obj toReturn)
     {
-        reader.BaseStream.Position = toReturn.FileOffs;
+        reader.BaseStream.Position = toReturn.Offset + toReturn.FileOffs;
 
         uint count = reader.ReadCc65Var();
 
@@ -210,9 +237,9 @@ public static class Cc65LibParser
         }
     }
 
-    private static void ReadLineInfos(BinaryReader reader, Cc65Lib toReturn)
+    private static void ReadLineInfos(BinaryReader reader, Cc65Obj toReturn)
     {
-        reader.BaseStream.Position = toReturn.LineInfoOffs;
+        reader.BaseStream.Position = toReturn.Offset + toReturn.LineInfoOffs;
 
         uint count = reader.ReadCc65Var();
 
@@ -235,7 +262,7 @@ public static class Cc65LibParser
         }
     }
 
-    private static void ReadHeader(BinaryReader reader, Cc65Lib toReturn)
+    private static void ReadHeader(BinaryReader reader, Cc65Obj toReturn)
     {
         toReturn.Version = reader.ReadUInt16();
         toReturn.Flags = reader.ReadUInt16();
@@ -347,7 +374,14 @@ public static class BinaryReaderExtensions
 
 public class Cc65Lib
 {
+    public ushort Flags { get; set; }
+    public uint IndexOfs { get; set; }
+}
+
+public class Cc65Obj
+{
     public string Filename { get; set; } = "";
+    public long Offset { get; set; }
 
     public ushort Version;        /* 16: Version number */
     public ushort Flags;          /* 16: flags */
@@ -400,9 +434,14 @@ public class Cc65Lib
         {
             var lineInfo = Lines[(int)i.LineInfo[0]];
             var file = Files[(int)lineInfo.FileInfo_id];
-            var filename = Path.Join(Path.GetFullPath(Path.GetDirectoryName(Filename)), GetLibraryString(file.Filename_StringId));
+            var filename = GetLibraryString(file.Filename_StringId);
+            if (!string.IsNullOrEmpty(filename))
+            {
+                filename = Path.GetFullPath(Path.Join(Path.GetDirectoryName(Filename), filename));
 
-            yield return $".map \"{filename}\" {lineInfo.Line - 1}"; // -1 as bitmagic is 0 based
+                yield return $".map {filename} {lineInfo.Line - 1}"; // -1 as bitmagic is 0 based
+            }
+
             yield return i.Getvalue(this);
         }
 
@@ -472,7 +511,7 @@ public class Fragment
     public Expression? Expr { get; set; }
     public List<uint> LineInfo { get; } = new();
 
-    public string Getvalue(Cc65Lib lib)
+    public string Getvalue(Cc65Obj lib)
     {
         var type = ((uint)FragmentType & TypeMask);
 
@@ -563,7 +602,7 @@ public class Expression
     public uint ImportNumber { get; set; }
     public uint SectionNumber { get; set; }
 
-    public string GetValue(Cc65Lib lib)
+    public string GetValue(Cc65Obj lib)
     {
         switch ((uint)ExpressionType)
         {
@@ -634,7 +673,7 @@ public class Export
     public List<uint> DefinedLines { get; set; } = new();
     public List<uint> ReferencedLines { get; set; } = new();
 
-    public string GetValue(Cc65Lib lib)
+    public string GetValue(Cc65Obj lib)
     {
         return Expr.GetValue(lib);
     }
