@@ -10,7 +10,7 @@ public static class Cc65LibParser
     private const uint _objectHeader = 0x616E7A55;
     private const uint _libraryHeader = 0x7A55616E;
 
-    public static Cc65Obj Parse(string filename, string scopeName)
+    public static Cc65Obj Parse(string filename, string scopeName, string sourcePath = "")
     {
         if (!File.Exists(filename))
             throw new FileNotFoundException(filename);
@@ -30,7 +30,7 @@ public static class Cc65LibParser
         if (header != _objectHeader)
             throw new Exception($"File {filename} is not a recognised file.");
 
-        toReturn = ReadObject(reader, scopeName, filename);
+        toReturn = ReadObject(reader, scopeName, filename, sourcePath);
 
         reader.Close();
         fs.Close();
@@ -52,9 +52,9 @@ public static class Cc65LibParser
         return toReturn;
     }
 
-    private static Cc65Obj ReadObject(BinaryReader reader, string scopeName, string filename)
+    private static Cc65Obj ReadObject(BinaryReader reader, string scopeName, string filename, string sourcePath)
     {
-        var toReturn = new Cc65Obj() { ScopeName = scopeName, Offset = reader.BaseStream.Position - 4, Filename = filename };
+        var toReturn = new Cc65Obj() { ScopeName = scopeName, Offset = reader.BaseStream.Position - 4, Filename = filename, SourcePath = sourcePath };
 
         ReadHeader(reader, toReturn);
 
@@ -381,6 +381,8 @@ public class Cc65Lib
 public class Cc65Obj
 {
     public string Filename { get; set; } = "";
+    public string SourcePath { get; set; } = "";
+
     public long Offset { get; set; }
 
     public ushort Version;        /* 16: Version number */
@@ -418,6 +420,10 @@ public class Cc65Obj
 
     public IEnumerable<string> GenerateCodeStrings(string cc65Segment)
     {
+        var p = "";
+        if (!string.IsNullOrWhiteSpace(SourcePath))
+            p = Path.GetFullPath(SourcePath);
+
         yield return $".scope {ScopeName}";
 
         yield return $".{cc65Segment}:";
@@ -430,19 +436,20 @@ public class Cc65Obj
             yield break;
         }
 
+        var hasPath = !string.IsNullOrWhiteSpace(p);
+
         foreach (var i in segment.Fragments)
         {
             var lineInfo = Lines[(int)i.LineInfo[0]];
             var file = Files[(int)lineInfo.FileInfo_id];
-            var filename = GetLibraryString(file.Filename_StringId);
+            var filename = hasPath ? Path.GetFullPath(GetLibraryString(file.Filename_StringId), p) : Path.GetFullPath(p);
             if (!string.IsNullOrEmpty(filename))
             {
-                filename = Path.GetFullPath(Path.Join(Path.GetDirectoryName(Filename), filename));
-
                 yield return $".map {filename} {lineInfo.Line - 1}"; // -1 as bitmagic is 0 based
+                yield return i.Getvalue(this, true);
+                continue;
             }
-
-            yield return i.Getvalue(this);
+            yield return i.Getvalue(this, false);
         }
 
         yield return ".endscope";
@@ -511,7 +518,7 @@ public class Fragment
     public Expression? Expr { get; set; }
     public List<uint> LineInfo { get; } = new();
 
-    public string Getvalue(Cc65Obj lib)
+    public string Getvalue(Cc65Obj lib, bool hasMap)
     {
         var type = ((uint)FragmentType & TypeMask);
 
@@ -531,7 +538,7 @@ public class Fragment
                     _ => throw new Exception($"Unknown fragment type 0x{FragmentType}")
                 } + Expr.GetValue(lib);
             case Literal:
-                return ".code " + string.Join(", ", Data.Select(i => $"${i:X2}"));
+                return (hasMap ? ".code" : ".byte ") + string.Join(", ", Data.Select(i => $"${i:X2}"));
             case Fill:
                 return $".pad {Data.Length}";
         }

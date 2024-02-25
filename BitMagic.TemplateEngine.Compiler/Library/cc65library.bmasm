@@ -3,9 +3,9 @@ using Ca65LibParser;
 
 include "cc65LibParser.cs";
 
-public static Cc65Obj Parse(string filename, string scope)
+public static Cc65Obj Parse(string filename, string scope, string sourcePath = "")
 {
-    return Cc65LibParser.Parse(filename, scope);
+    return Cc65LibParser.Parse(filename, scope, sourcePath);
 }
 
 public static void Exports(Cc65Obj lib)
