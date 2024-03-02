@@ -37,8 +37,16 @@ public static void Bytes(IEnumerable<byte> bytes, int width = 16)
     }
 }
 
-public static void Bytes(string stringData)
-    => Bytes(stringData.ToCharArray().Select(i => (byte)i));
+public static void Bytes(string stringData) => Bytes(stringData.ToCharArray().Select(i => (byte)i));
+
+public static void HighBytes(IEnumerable<int> words, int width = 16) => Bytes(words.Select(i => (i >> 8) & 0xff), width);
+public static void HighBytes(IEnumerable<ushort> words, int width = 16) => Bytes(words.Select(i => (i >> 8) & 0xff), width);
+public static void HighBytes(IEnumerable<short> words, int width = 16) => Bytes(words.Select(i => (i >> 8) & 0xff), width);
+
+public static void LowBytes(IEnumerable<int> words, int width = 16) => Bytes(words.Select(i => i & 0xff), width);
+public static void LowBytes(IEnumerable<ushort> words, int width = 16) => Bytes(words.Select(i => i & 0xff), width);
+public static void LowBytes(IEnumerable<short> words, int width = 16) => Bytes(words.Select(i => i & 0xff), width);
+
 
 public static void Words(IEnumerable<ushort> words, int width = 16)
 {
