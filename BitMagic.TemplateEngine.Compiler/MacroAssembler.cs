@@ -32,7 +32,7 @@ public static partial class MacroAssembler
 
         filename = filename.FixFilename();
 
-        return (await ProcessFile(engine, source, filename, options, logger, new GlobalBuildState(), "  ", false)).Result;
+        return (await ProcessFile(engine, source, filename, options, logger, new GlobalBuildState(Path.GetFullPath(options.BinFolder)), "  ", false)).Result;
     }
 
     private static async Task<(ProcessResult Result, bool RequireBuild)> ProcessFile(this ITemplateEngine engine, ISourceFile source, string filename, TemplateOptions options,
@@ -54,7 +54,7 @@ public static partial class MacroAssembler
         if (requireBuild)
         {
             logger.LogLine($"{indent}Building assembly '{Path.GetFileNameWithoutExtension(binaryFilename)}'");
-            var templateDefinition = CreateTemplate(engine, lines, filename, buildState, @namespace, classname, isLibrary);
+            var templateDefinition = await CreateTemplate(engine, lines, filename, buildState, logger, @namespace, classname, isLibrary);
             assemblyData = CreateAssembly(templateDefinition, assemblyName, engine, logger, buildState, indent);
 
             if (Directory.Exists(options.BinFolder))
@@ -226,8 +226,9 @@ public static partial class MacroAssembler
     /// <param name="contents">Input file contents</param>
     /// <returns>File that can be compiled</returns>
     /// <exception cref="ArgumentNullException"></exception>
-    private static PreProcessResult CreateTemplate(ITemplateEngine engine, IReadOnlyList<string> lines, string filename, GlobalBuildState buildState,
-        string @namespace = "BitMagic.App", string className = "Template", bool isLibrary = false)
+    private static async Task<PreProcessResult> CreateTemplate(ITemplateEngine engine, IReadOnlyList<string> lines, string filename, 
+        GlobalBuildState buildState,
+        IEmulatorLogger logger, string @namespace = "BitMagic.App", string className = "Template", bool isLibrary = false)
     {
         if (lines == null)
             throw new ArgumentNullException(nameof(lines));
@@ -399,6 +400,46 @@ public static partial class MacroAssembler
                 continue;
             }
 
+            if (line.StartsWith("nuget"))
+            {
+                var toParse = line.Substring("nuget ".Length);
+                var idx = toParse.IndexOf(';');
+                if (idx >= 0)
+                    toParse = toParse[..idx];
+
+                toParse = toParse.Trim();
+
+                idx = toParse.IndexOf(',');
+
+                var version = "";
+                var name = "";
+
+                if (idx >= 0)
+                {
+                    name = toParse[..idx].Trim();
+                    version = toParse[(idx+1)..].Trim();
+                }
+                else
+                    name = toParse;
+
+                if (name.StartsWith('"') && name.EndsWith('"'))
+                    name = name[1..^1];
+
+                if (version.StartsWith('"') && version.EndsWith('"'))
+                    version = version[1..^1];
+
+                var files = await NugetManager.DownloadNugetPackage(buildState.BinaryFolder, name, version, logger);
+
+                foreach(var i in files)
+                {
+                    if (i.EndsWith(".dll"))
+                        assemblyFilenames.Add(i);
+                }
+
+                output.Add("");
+                continue;
+            }
+
             processingHeader = false;
 
             output.Add(originalLine);
@@ -467,6 +508,11 @@ public static partial class MacroAssembler
         public IEnumerable<ProcessResult> AllReferences => References.Union(References.SelectMany(i => i.References));
         public List<string> BinaryFilenames { get; } = new();
         public List<SourceFileBase> SourceFiles { get; } = new();
+        public string BinaryFolder { get; }
+        public GlobalBuildState(string binaryFolder)
+        {
+            BinaryFolder = binaryFolder;
+        }
     }
 
     // used to map the generated code to the original file, eg for error reporting.
@@ -497,6 +543,9 @@ public static partial class MacroAssembler
                 typeof(System.Collections.IList).Assembly,
                 typeof(System.Collections.Generic.IEnumerable<>).Assembly,
                 Assembly.Load(new AssemblyName("System.Linq")),
+                Assembly.Load(new AssemblyName("System.Memory")),
+                Assembly.Load(new AssemblyName("System.Numerics.Vectors")),
+                Assembly.Load(new AssemblyName("System.Numerics")),
                 Assembly.Load(new AssemblyName("System.Linq.Expressions")),
                 Assembly.Load(new AssemblyName("netstandard")),
                 typeof(Template).Assembly
