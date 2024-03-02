@@ -107,29 +107,35 @@ internal static class NugetManager
 
         public void Log(LogLevel level, string data)
         {
-            _logger.LogLine($"{level}: data");
+            if (level is LogLevel.Error or LogLevel.Warning)
+                _logger.LogLine($"{level}: data");
         }
 
         public void Log(ILogMessage message)
         {
-            _logger.LogLine($"{message.WarningLevel} : {message.Message}");
+            if (message.WarningLevel is WarningLevel.Severe or WarningLevel.Important)
+                _logger.LogLine($"{message.WarningLevel} : {message.Message}");
         }
 
         public Task LogAsync(LogLevel level, string data)
         {
-            _logger.LogLine($"{level}: data");
+            if (level is LogLevel.Error or LogLevel.Warning)
+                _logger.LogLine($"{level}: data");
+
             return Task.CompletedTask;
         }
 
         public Task LogAsync(ILogMessage message)
         {
-            _logger.LogLine($"{message.WarningLevel} : {message.Message}");
+            if (message.WarningLevel is WarningLevel.Severe or WarningLevel.Important)
+                _logger.LogLine($"{message.WarningLevel} : {message.Message}");
+
             return Task.CompletedTask;
         }
 
         public void LogDebug(string data)
         {
-            _logger.LogLine($"ERROR : {data}");
+            //_logger.LogLine($"ERROR : {data}");
         }
 
         public void LogError(string data)
@@ -139,22 +145,22 @@ internal static class NugetManager
 
         public void LogInformation(string data)
         {
-            _logger.LogLine($"INFO : {data}");
+            //_logger.LogLine($"INFO : {data}");
         }
 
         public void LogInformationSummary(string data)
         {
-            _logger.LogLine($"INFO SUM : {data}");
+            //_logger.LogLine($"INFO SUM : {data}");
         }
 
         public void LogMinimal(string data)
         {
-            _logger.LogLine($"MIN : {data}");
+            //_logger.LogLine($"MIN : {data}");
         }
 
         public void LogVerbose(string data)
         {
-            _logger.LogLine($"VERB : {data}");
+            //_logger.LogLine($"VERB : {data}");
         }
 
         public void LogWarning(string data)
