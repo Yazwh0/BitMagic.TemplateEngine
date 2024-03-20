@@ -19,6 +19,7 @@ public static partial class MacroAssembler
         public ProcessResult[] References { get; }
         public string Classname { get; }
         public string Namespace { get; }
+        public override bool X16File => false;
 
         private List<SourceFileBase> _parents = new List<SourceFileBase>();
         public override IReadOnlyList<ISourceFile> Parents => _parents;
