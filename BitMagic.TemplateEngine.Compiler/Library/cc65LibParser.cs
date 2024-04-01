@@ -91,7 +91,7 @@ public static class Cc65LibParser
 
             export.Name_StringId = reader.ReadCc65Var();
 
-            if ((exportType & Export.SymExport) != 0)
+            if ((exportType & Export.Expression) != 0)
             {
                 export.Expr = ReadExpression(reader);
             }
@@ -440,7 +440,7 @@ public class Cc65Obj
 
         foreach (var i in segment.Fragments)
         {
-            var lineInfo = Lines[(int)i.LineInfo[0]];
+            var lineInfo = Lines[(int)i.LineInfo[i.LifeInfo.Count - 1]];
             var file = Files[(int)lineInfo.FileInfo_id];
             var filename = hasPath ? Path.GetFullPath(GetLibraryString(file.Filename_StringId), p) : Path.GetFullPath(p);
             if (!string.IsNullOrEmpty(filename))
