@@ -57,7 +57,6 @@ public static void Words(IEnumerable<ushort> words, int width = 16)
     {
         if (first)
         {
-            sb.Append(".word\t");
             first = false;
         }
         else
