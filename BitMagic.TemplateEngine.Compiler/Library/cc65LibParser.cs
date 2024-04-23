@@ -440,7 +440,7 @@ public class Cc65Obj
 
         foreach (var i in segment.Fragments)
         {
-            var lineInfo = Lines[(int)i.LineInfo[i.LifeInfo.Count - 1]];
+            var lineInfo = Lines[(int)i.LineInfo[i.LineInfo.Count - 1]];
             var file = Files[(int)lineInfo.FileInfo_id];
             var filename = hasPath ? Path.GetFullPath(GetLibraryString(file.Filename_StringId), p) : Path.GetFullPath(p);
             if (!string.IsNullOrEmpty(filename))
