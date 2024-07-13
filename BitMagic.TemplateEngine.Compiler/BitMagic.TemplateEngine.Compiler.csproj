@@ -11,7 +11,7 @@
   </PropertyGroup>
   
   <ItemGroup>
-    <Compile Remove="Library\cc65LibParser.cs" />
+    <Compile Remove="Library\Cc65LibParser.cs" />
   </ItemGroup>
   
   <ItemGroup>
