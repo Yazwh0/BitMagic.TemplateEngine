@@ -32,7 +32,7 @@ public static partial class MacroAssembler
 
         filename = filename.FixFilename();
 
-        return (await ProcessFile(engine, source, filename, options, logger, new GlobalBuildState(Path.GetFullPath(options.BinFolder)), "  ", false)).Result;
+        return (await ProcessFile(engine, source, filename, options, logger, new GlobalBuildState(Path.GetFullPath(options.BinFolder), options), "  ", false)).Result;
     }
 
     private static async Task<(ProcessResult Result, bool RequireBuild)> ProcessFile(this ITemplateEngine engine, ISourceFile source, string filename, TemplateOptions options,
@@ -83,7 +83,7 @@ public static partial class MacroAssembler
 
         if (line != null)
         {
-            if (line.EndsWith(";"))
+            if (line.EndsWith(';'))
                 line = line[..^1];
 
             var parts = line.Split(' ');
@@ -472,8 +472,17 @@ public static partial class MacroAssembler
 #if DEBUG
         var allText = string.Join("\n", allLines);
 #endif
+        if (buildState.Options.SavePreGeneratedTemplate)
+        {
+            File.WriteAllLines(Path.Combine(buildState.BinaryFolder, Path.GetFileName(filename) + ".pretemplate.cs"), allLines);
+        }
 
         var processResult = engine.Process(allLines, startLine, filename, isLibrary);
+
+        if (buildState.Options.SaveGeneratedTemplate)
+        {
+            File.WriteAllText(Path.Combine(buildState.BinaryFolder, Path.GetFileName(filename) + ".template.cs"), processResult.Code);
+        }
 
         // this is suspect, might not work for libraries
         var cnt = 0; //  isLibrary ? 0 : 1; // this dosen't appear to make a difference
@@ -509,9 +518,11 @@ public static partial class MacroAssembler
         public List<string> BinaryFilenames { get; } = new();
         public List<SourceFileBase> SourceFiles { get; } = new();
         public string BinaryFolder { get; }
-        public GlobalBuildState(string binaryFolder)
+        public TemplateOptions Options { get; }
+        public GlobalBuildState(string binaryFolder, TemplateOptions options)
         {
             BinaryFolder = binaryFolder;
+            Options = options;
         }
     }
 
@@ -546,6 +557,7 @@ public static partial class MacroAssembler
                 Assembly.Load(new AssemblyName("System.Memory")),
                 Assembly.Load(new AssemblyName("System.Numerics.Vectors")),
                 Assembly.Load(new AssemblyName("System.Numerics")),
+                Assembly.Load(new AssemblyName("System.Collections")),
                 Assembly.Load(new AssemblyName("System.Linq.Expressions")),
                 Assembly.Load(new AssemblyName("netstandard")),
                 typeof(Template).Assembly
@@ -559,6 +571,7 @@ public static partial class MacroAssembler
             var assemblyInclude = Assembly.LoadFrom(assemblyFilename);
             logger.LogLine($"{indent}Adding File Assembly: {assemblyInclude.FullName}");
 
+            buildState.BinaryFilenames.Add(assemblyInclude.Location);
             assemblies.Add(assemblyInclude);
         }
 
@@ -567,6 +580,7 @@ public static partial class MacroAssembler
             var assemblyInclude = Assembly.Load(include);
             logger.LogLine($"{indent}Adding Referenced Assembly: {include}");
 
+            buildState.BinaryFilenames.Add(assemblyInclude.Location);
             assemblies.Add(assemblyInclude);
         }
 

@@ -17,6 +17,7 @@
   <ItemGroup>
     <None Remove="Library\BM.bmasm" />
     <None Remove="Library\cc65library.bmasm" />
+    <None Remove="Library\TileCreator.cs.xx" />
   </ItemGroup>
   
   <ItemGroup>
@@ -26,7 +27,7 @@
   </ItemGroup>
   
   <ItemGroup>
-    <Content Include="Library\cc65LibParser.cs">
+    <Content Include="Library\Cc65LibParser.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Library\cc65library.bmasm">
@@ -44,6 +45,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\BitMagic.Libraries\BitMagic.Common\BitMagic.Common.csproj" />
     <ProjectReference Include="..\..\BitMagic.X16Compiler\BitMagic.Compiler\BitMagic.Compiler.csproj" />
+    <ProjectReference Include="..\..\BitMagic.X16Debugger\BitMagic.ImageHelper\BitMagic.ImageHelper.csproj" />
     <ProjectReference Include="..\BitMagic.TemplateEngine.Objects\BitMagic.TemplateEngine.Objects.csproj" />
     <ProjectReference Include="..\Bitmagic.TemplateEngine\BitMagic.TemplateEngine.csproj" />
   </ItemGroup>

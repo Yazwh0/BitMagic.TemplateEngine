@@ -4,4 +4,6 @@ public record TemplateOptions
 {
     public string BinFolder { get; set; } = "bin";
     public bool Rebuild { get; set; }
+    public bool SaveGeneratedTemplate { get; set; } = false;
+    public bool SavePreGeneratedTemplate { get; set; } = false;
 }
