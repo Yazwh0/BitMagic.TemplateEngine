@@ -283,6 +283,12 @@ public static partial class MacroAssembler
                 continue;
             }
 
+            if (line.StartsWith(';'))
+            {
+                output.Add("//" + originalLine);
+                continue;
+            }
+
             if (line.StartsWith("library"))
             {
                 output.Add("");
