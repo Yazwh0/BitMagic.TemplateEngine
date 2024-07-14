@@ -574,7 +574,7 @@ public static partial class MacroAssembler
 
         foreach (var assemblyFilename in content.AssemblyFilenames)
         {
-            var assemblyInclude = Assembly.LoadFrom(assemblyFilename);
+            var assemblyInclude = Assembly.LoadFrom(FindFile(assemblyFilename, buildState));
             logger.LogLine($"{indent}Adding File Assembly: {assemblyInclude.FullName}");
 
             buildState.BinaryFilenames.Add(assemblyInclude.Location);
@@ -689,6 +689,23 @@ public static partial class MacroAssembler
 
         throw new Exception("Cannot find 'BitMagic.TemplateEngine.Runner.exe', consider manually installing and adding evironment variable 'BitMagic.TemplateEngine.Runner' to the path.");
     }
+
+    private static string FindFile(string filename, GlobalBuildState buildState)
+    {
+        var f = Path.Combine(buildState.Options.BasePath, filename);
+        if (File.Exists(f))
+            return f;
+
+        f = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "", filename);
+        if (File.Exists(f))
+            return f;
+
+        if (File.Exists(filename))
+            return filename;
+
+        throw new AssemblyFileNotFound(filename);
+    }
+
 
     private static async Task<ProcessResult> CompileFile(byte[] assemblyData, GlobalBuildState buildState, string sourceFilename, string @namespace, string className, bool isLibrary)
     {

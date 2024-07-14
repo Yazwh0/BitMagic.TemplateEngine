@@ -43,8 +43,7 @@ public sealed class CompilationError
 public class ImportParseException : TemplateException
 {
     public ImportParseException(string message) : base(message)
-    {
-    }
+    { }
 }
 
 public class ImportNotFoundException : TemplateException
@@ -56,6 +55,10 @@ public class ImportNotFoundException : TemplateException
 public class IncludeParseException : TemplateException
 {
     public IncludeParseException(string message) : base(message)
-    {
-    }
+    { }
+}
+
+public class AssemblyFileNotFound : TemplateException
+{
+    public AssemblyFileNotFound(string message) : base(message) { }
 }
