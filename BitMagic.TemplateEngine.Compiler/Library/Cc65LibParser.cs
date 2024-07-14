@@ -538,7 +538,7 @@ public class Fragment
                     _ => throw new Exception($"Unknown fragment type 0x{FragmentType}")
                 } + Expr.GetValue(lib);
             case Literal:
-                return (hasMap ? ".code" : ".byte ") + string.Join(", ", Data.Select(i => $"${i:X2}"));
+                return (hasMap ? ".code " : ".byte ") + string.Join(", ", Data.Select(i => $"${i:X2}"));
             case Fill:
                 return $".pad {Data.Length}";
         }
