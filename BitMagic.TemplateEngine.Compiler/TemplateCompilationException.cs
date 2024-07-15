@@ -40,25 +40,18 @@ public sealed class CompilationError
     public int LineNumber { get; set; }
 }
 
-public class ImportParseException : TemplateException
+public class ImportParseException(string message) : TemplateException(message)
 {
-    public ImportParseException(string message) : base(message)
-    { }
 }
 
-public class ImportNotFoundException : TemplateException
+public class ImportNotFoundException(string filename, IEnumerable<string> searched, string path) : TemplateException($"Import file not found : '{filename}', searched {string.Join(", ", searched.Select(i => $"\"{i}\""))}, starting path '{path}'.")
 {
-    public ImportNotFoundException(string filename, IEnumerable<string> searched, string path) : base($"Import file not found : '{filename}', searched {string.Join(", ", searched.Select(i => $"\"{i}\""))}, starting path '{path}'.")
-    { }
 }
 
-public class IncludeParseException : TemplateException
+public class IncludeParseException(string message) : TemplateException(message)
 {
-    public IncludeParseException(string message) : base(message)
-    { }
 }
 
-public class AssemblyFileNotFound : TemplateException
+public class AssemblyFileNotFoundException(string message) : TemplateException(message)
 {
-    public AssemblyFileNotFound(string message) : base(message) { }
 }

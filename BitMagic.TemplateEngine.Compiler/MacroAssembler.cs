@@ -703,7 +703,7 @@ public static partial class MacroAssembler
         if (File.Exists(filename))
             return filename;
 
-        throw new AssemblyFileNotFound(filename);
+        throw new AssemblyFileNotFoundException(filename);
     }
 
 
