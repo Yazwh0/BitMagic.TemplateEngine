@@ -14,6 +14,7 @@ using System.Text.RegularExpressions;
 using System.Diagnostics;
 using Newtonsoft.Json;
 using BitMagic.Compiler.Files;
+using System.Collections.Immutable;
 
 namespace BitMagic.TemplateEngine.Compiler;
 
@@ -371,8 +372,8 @@ public static partial class MacroAssembler
 
             if (line.StartsWith("reference"))
             {
-                var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                var name = parts[1];
+                var idx = line.IndexOf(' ');
+                var name = line.Substring(idx + 1);
 
                 if (name.EndsWith(';'))
                     name = name.Substring(0, name.Length - 1);
@@ -557,6 +558,9 @@ public static partial class MacroAssembler
                 typeof(object).Assembly,
                 Assembly.Load(new AssemblyName("Microsoft.CSharp")),
                 Assembly.Load(new AssemblyName("System.Runtime")),
+                Assembly.Load(new AssemblyName("mscorlib")),
+                Assembly.Load(new AssemblyName("System")),
+                Assembly.Load(new AssemblyName("System.Core")),
                 typeof(System.Collections.IList).Assembly,
                 typeof(System.Collections.Generic.IEnumerable<>).Assembly,
                 Assembly.Load(new AssemblyName("System.Linq")),
@@ -565,10 +569,13 @@ public static partial class MacroAssembler
                 Assembly.Load(new AssemblyName("System.Numerics")),
                 Assembly.Load(new AssemblyName("System.Collections")),
                 Assembly.Load(new AssemblyName("System.Linq.Expressions")),
+                Assembly.Load(new AssemblyName("System.ObjectModel")),
                 Assembly.Load(new AssemblyName("netstandard")),
                 typeof(Template).Assembly
                 //,
         });
+
+//        var t = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES").ToString();
 
         assemblies.AddRange(engine.Assemblies);
 
@@ -579,24 +586,39 @@ public static partial class MacroAssembler
 
             buildState.BinaryFilenames.Add(assemblyInclude.Location);
             assemblies.Add(assemblyInclude);
+
+            //var x = assemblyInclude.GetReferencedAssemblies();
+            //Assembly.Load(
         }
+
 
         foreach (var include in content.References)
         {
-            var assemblyInclude = Assembly.Load(include);
-            logger.LogLine($"{indent}Adding Referenced Assembly: {include}");
+            var assemblyInclude = Assembly.Load(new AssemblyName(include));
+            logger.LogLine($"{indent}Adding Referenced Assembly: {assemblyInclude.FullName}");
 
             buildState.BinaryFilenames.Add(assemblyInclude.Location);
             assemblies.Add(assemblyInclude);
         }
 
+        //foreach (var a in assemblyInclude.GetReferencedAssemblies())
+        //{
+        //    var am = Assembly.Load(a);
+        //    assemblies.Add(am);
+
+        //    var x = am.GetReferencedAssemblies();
+        //}
+
+
         var builtMetadata = buildState.AllReferences.Select(i => MetadataReference.CreateFromImage(i.CompiledData));
+
+        var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary);
 
         CSharpCompilation compilation = CSharpCompilation.Create(
             contentAssemblyName,
             syntaxTrees,
             assemblies.Select(i => MetadataReference.CreateFromFile(i.Location)).Union(builtMetadata),
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            options);
 
         MemoryStream memoryStream = new MemoryStream();
 
