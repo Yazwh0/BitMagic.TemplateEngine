@@ -14,7 +14,6 @@ using System.Text.RegularExpressions;
 using System.Diagnostics;
 using Newtonsoft.Json;
 using BitMagic.Compiler.Files;
-using System.Collections.Immutable;
 
 namespace BitMagic.TemplateEngine.Compiler;
 
@@ -62,11 +61,35 @@ public static partial class MacroAssembler
             {
                 await File.WriteAllBytesAsync(binaryFilename, assemblyData);
                 buildState.BinaryFilenames.Add(binaryFilename);
+
+                await File.WriteAllTextAsync(binaryFilename + ".deps", JsonConvert.SerializeObject(new DependantsFile(templateDefinition)));
+            }
+            else
+            {
+                throw new Exception($"Output bin folder '{options.BinFolder}' does not exist.");
             }
         }
         else
         {
             logger.LogLine($"{indent}Loading assembly '{Path.GetFileNameWithoutExtension(binaryFilename)}'");
+
+            if (File.Exists(binaryFilename + ".deps"))
+            {
+                var dependants = JsonConvert.DeserializeObject<DependantsFile>(File.ReadAllText(binaryFilename + ".deps"));
+
+                if (dependants != null)
+                {
+                    foreach (var i in dependants.AssemblyFilenames)
+                    {
+                        buildState.BinaryFilenames.Add(FindFile(i, buildState));
+                    }
+
+                    foreach (var i in dependants.References)
+                    {
+                        buildState.BinaryFilenames.Add(FindFile(i, buildState));
+                    }
+                }
+            }
 
             assemblyData = await File.ReadAllBytesAsync(binaryFilename);
             buildState.BinaryFilenames.Add(binaryFilename);
@@ -504,7 +527,7 @@ public static partial class MacroAssembler
         return new PreProcessResult(references, assemblyFilenames, includedCode, processResult.Code, map, filename, @namespace, className);
     }
 
-    private sealed record class PreProcessResult(
+    internal sealed record class PreProcessResult(
             List<string> References,
             List<string> AssemblyFilenames,
             List<string> Includes,
@@ -534,7 +557,7 @@ public static partial class MacroAssembler
     }
 
     // used to map the generated code to the original file, eg for error reporting.
-    private record struct TemplateMap(int GeneratedLine, int OriginalLine);
+    internal record struct TemplateMap(int GeneratedLine, int OriginalLine);
 
     private static byte[] CreateAssembly(PreProcessResult content, string contentAssemblyName, ITemplateEngine engine, IEmulatorLogger logger, GlobalBuildState buildState, string indent)
     {
@@ -712,7 +735,7 @@ public static partial class MacroAssembler
         throw new Exception("Cannot find 'BitMagic.TemplateEngine.Runner.exe', consider manually installing and adding evironment variable 'BitMagic.TemplateEngine.Runner' to the path.");
     }
 
-    private static string FindFile(string filename, GlobalBuildState buildState)
+    internal static string FindFile(string filename, GlobalBuildState buildState)
     {
         var f = Path.Combine(buildState.Options.BasePath, filename);
         if (File.Exists(f))
