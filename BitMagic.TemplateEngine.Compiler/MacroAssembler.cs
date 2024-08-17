@@ -22,7 +22,7 @@ public static partial class MacroAssembler
     public static async Task<ProcessResult> ProcessFile(this ITemplateEngine engine, ISourceFile source, string filename, TemplateOptions options, IEmulatorLogger logger)
     {
         if (string.IsNullOrWhiteSpace(options.BinFolder))
-            options.BinFolder = "Bin";
+            options.BinFolder = "bin";
 
         if (!Directory.Exists(options.BinFolder))
         {
