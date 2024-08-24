@@ -90,6 +90,8 @@ namespace BitMagic.TemplateEngine
                     map.Add(lineNumber);
                     sb.AppendLine(ProcessVariableLine(raw.Substring(prefix.Length), lineNumber - 1, sourceFileName));
 
+                    lineNumber++;
+
                     matched = true;
                 }
 

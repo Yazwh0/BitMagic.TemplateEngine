@@ -9,6 +9,19 @@ public static class Template
 
     public static void WriteLiteral(string literal, int lineNumber, string sourceFile)
     {
+        if (literal.IndexOf('\n') != -1)    // if the literal is multiple lines, then dont map as we can't
+        {
+            var lines = literal.Split('\n');
+
+            foreach (var l in lines)
+            {
+                _output.AppendLine(l);
+                _map.Add(new SourceResultMap(0, ""));
+                //_map.Add(new SourceResultMap(string.IsNullOrWhiteSpace(sourceFile) ? -1 : lineNumber, sourceFile));
+            }
+
+            return;
+        }
         _output.AppendLine(literal);
         _map.Add(new SourceResultMap(string.IsNullOrWhiteSpace(sourceFile) ? -1 : lineNumber, sourceFile));
     }
