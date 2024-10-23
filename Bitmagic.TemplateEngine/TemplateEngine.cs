@@ -144,6 +144,8 @@ namespace BitMagic.TemplateEngine
                     output = "";
             }
 
+            output = output.Replace("\"", "\"\"");
+
             return $"BitMagic.TemplateEngine.Objects.Template.WriteLiteral($@\"{output}\", {lineNumber}, @\"{sourceFile}\");";
         }
 
