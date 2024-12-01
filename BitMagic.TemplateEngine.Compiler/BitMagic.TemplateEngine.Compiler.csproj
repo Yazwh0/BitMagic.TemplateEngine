@@ -17,7 +17,14 @@
   <ItemGroup>
     <None Remove="Library\BM.bmasm" />
     <None Remove="Library\cc65library.bmasm" />
+    <None Remove="Library\Initialisation.bmasm" />
     <None Remove="Library\TileCreator.cs.xx" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Library\Initialisation.bmasm" >
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   
   <ItemGroup>

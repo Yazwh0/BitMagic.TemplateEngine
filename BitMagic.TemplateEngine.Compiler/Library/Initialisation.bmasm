@@ -1,0 +1,16 @@
+﻿library BitMagic.Initialisation.Manager;
+
+private static List<Action> _methods = new();
+
+public static void Add(Action method)
+{
+    _methods.Add(method);
+}
+
+public static void Setup()
+{
+    foreach(var i in _methods)
+    {
+        i();
+    }
+}
