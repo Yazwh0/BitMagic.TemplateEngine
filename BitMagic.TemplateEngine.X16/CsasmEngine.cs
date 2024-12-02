@@ -53,13 +53,13 @@ public static class CsasmEngine
                 map.Add(new SourceResultMap(0, ""));
             }
 
-            if (line.EndsWith(".endproc", StringComparison.InvariantCultureIgnoreCase))
+            if (line.StartsWith(".endproc", StringComparison.InvariantCultureIgnoreCase))
             {
                 addBlank = true;
                 indent--;
             }
 
-            if (line.EndsWith(".endscope", StringComparison.InvariantCultureIgnoreCase))
+            if (line.StartsWith(".endscope", StringComparison.InvariantCultureIgnoreCase))
             {
                 addBlank = true;
                 indent--;
