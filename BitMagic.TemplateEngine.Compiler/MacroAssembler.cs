@@ -227,6 +227,68 @@ public static partial class MacroAssembler
             }
         }
 
+        var minImportTouchDate = DateTime.MaxValue;
+
+        foreach (var line in lines.Where(i => i.Trim().StartsWith("include")))
+        {
+            var regexResult = _includeRegex.Matches(line);
+
+            if (regexResult.Count != 1)
+                continue;
+
+            var match = regexResult[0];
+
+            if (!match.Success)
+                continue;
+
+            if (!match.Groups.TryGetValue("filename", out Group includeFilename))
+                continue;
+            
+            if (string.IsNullOrWhiteSpace(includeFilename.Value))
+                continue;
+
+
+            string sourceFilename = "";
+            var searched = new List<string>();
+
+            // check if its an absolute path               
+            if (File.Exists(includeFilename.Value))
+            {
+                sourceFilename = includeFilename.Value;
+            }
+            else
+            {
+                searched.Add(Path.GetFullPath(includeFilename.Value));
+            }
+
+            // check if its relative to the source file, if the source file is real
+            if (string.IsNullOrWhiteSpace(sourceFilename) && !string.IsNullOrWhiteSpace(source.Path))
+            {
+                var thisPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source.Path), includeFilename.Value));
+                searched.Add(thisPath);
+                if (File.Exists(thisPath))
+                    sourceFilename = thisPath;
+            }
+
+            if (string.IsNullOrWhiteSpace(sourceFilename) && string.IsNullOrWhiteSpace(Path.GetDirectoryName(includeFilename.Value)))
+            {
+                var thisPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "", "library", includeFilename.Value));
+                searched.Add(thisPath);
+                if (File.Exists(thisPath))
+                    sourceFilename = thisPath;
+            }
+
+            if (string.IsNullOrWhiteSpace(sourceFilename))
+                throw new ImportNotFoundException(includeFilename.Value, searched, source.Path);
+
+            sourceFilename = sourceFilename.FixFilename();
+
+            var lastChange = File.GetLastWriteTimeUtc(sourceFilename);
+
+            if (lastChange < minImportTouchDate)
+                minImportTouchDate = lastChange;
+        }
+
         var binaryFilename = Path.Combine(options.BinFolder, contentAssemblyName);
 
         if (newBuild)
@@ -238,7 +300,9 @@ public static partial class MacroAssembler
         if (!File.Exists(binaryFilename))
             return (true, binaryFilename);
 
-        return (File.GetLastWriteTimeUtc(binaryFilename) < File.GetLastWriteTimeUtc(source.Path), binaryFilename);
+        var binaryWriteTime = File.GetLastWriteTimeUtc(binaryFilename);
+
+        return (binaryWriteTime < File.GetLastWriteTimeUtc(source.Path) || binaryWriteTime < minImportTouchDate, binaryFilename);
     }
 
     private static Regex _importRegex = new Regex(@"^\s*import (?<importName>[\w]+)\s*=\s*\""(?<filename>[\/\\\w\-.: ]+)\""\s*\;", RegexOptions.Compiled);
@@ -379,7 +443,7 @@ public static partial class MacroAssembler
 
                 if (!File.Exists(fullPath))
                     throw new IncludeParseException($"Cannot find file '{fullPath}'");
-
+                
                 includedCode.Add(fullPath);
                 output.Add("");
                 continue;

@@ -3,6 +3,9 @@ using static BitMagic.TemplateEngine.Compiler.MacroAssembler;
 
 namespace BitMagic.TemplateEngine.Compiler;
 
+/// <summary>
+/// Used to store which binaries should be included if the code isn't rebuilt.
+/// </summary>
 internal class DependantsFile
 {
     public List<string> References { get; set; }
