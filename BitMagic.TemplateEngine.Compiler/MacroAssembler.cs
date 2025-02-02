@@ -227,7 +227,7 @@ public static partial class MacroAssembler
             }
         }
 
-        var minImportTouchDate = DateTime.MaxValue;
+        var maxImportTouchDate = DateTime.MinValue;
 
         foreach (var line in lines.Where(i => i.Trim().StartsWith("include")))
         {
@@ -285,8 +285,8 @@ public static partial class MacroAssembler
 
             var lastChange = File.GetLastWriteTimeUtc(sourceFilename);
 
-            if (lastChange < minImportTouchDate)
-                minImportTouchDate = lastChange;
+            if (lastChange > maxImportTouchDate)
+                maxImportTouchDate = lastChange;
         }
 
         var binaryFilename = Path.Combine(options.BinFolder, contentAssemblyName);
@@ -301,8 +301,9 @@ public static partial class MacroAssembler
             return (true, binaryFilename);
 
         var binaryWriteTime = File.GetLastWriteTimeUtc(binaryFilename);
+        var sourceWritetime = File.GetLastWriteTimeUtc(source.Path);
 
-        return (binaryWriteTime < File.GetLastWriteTimeUtc(source.Path) || binaryWriteTime < minImportTouchDate, binaryFilename);
+        return (binaryWriteTime < sourceWritetime || binaryWriteTime < maxImportTouchDate, binaryFilename);
     }
 
     private static Regex _importRegex = new Regex(@"^\s*import (?<importName>[\w]+)\s*=\s*\""(?<filename>[\/\\\w\-.: ]+)\""\s*\;", RegexOptions.Compiled);
