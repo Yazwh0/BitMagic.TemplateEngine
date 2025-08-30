@@ -783,7 +783,7 @@ public static partial class MacroAssembler
         using var process = new Process();
 
         process.StartInfo.FileName = "dotnet";
-        process.StartInfo.Arguments = "tool install --tool-path . BitMagic.TemplateRunner";
+        process.StartInfo.Arguments = "tool install --tool-path .\\TemplateEngine BitMagic.TemplateRunner";
         process.StartInfo.WorkingDirectory = d;
 
         process.Start();
