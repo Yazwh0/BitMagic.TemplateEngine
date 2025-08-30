@@ -772,7 +772,7 @@ public static partial class MacroAssembler
         }
 
         var d = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-        path = Path.Combine(d, exeName);
+        path = Path.Combine(d, "TemplateEngine", exeName);
 
         if (File.Exists(path))
         {
@@ -780,6 +780,7 @@ public static partial class MacroAssembler
             return path;
         }
 
+        // Not sure this does anything anymore?
         using var process = new Process();
 
         process.StartInfo.FileName = "dotnet";
