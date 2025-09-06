@@ -752,7 +752,7 @@ public static partial class MacroAssembler
 
     private static string _runnerLocation = null;
 
-    private static async Task<string> LocateRunner()
+    private static string LocateRunner()
     {
         if (_runnerLocation != null)
             return _runnerLocation;
@@ -781,22 +781,22 @@ public static partial class MacroAssembler
         }
 
         // Not sure this does anything anymore?
-        using var process = new Process();
+        //using var process = new Process();
 
-        process.StartInfo.FileName = "dotnet";
-        process.StartInfo.Arguments = "tool install --tool-path .\\TemplateEngine BitMagic.TemplateRunner";
-        process.StartInfo.WorkingDirectory = d;
+        //process.StartInfo.FileName = "dotnet";
+        //process.StartInfo.Arguments = "tool install --tool-path .\\TemplateEngine BitMagic.TemplateRunner";
+        //process.StartInfo.WorkingDirectory = d;
 
-        process.Start();
-        await process.WaitForExitAsync();
+        //process.Start();
+        //await process.WaitForExitAsync();
 
-        path = Path.Combine(d, exeName);
+        //path = Path.Combine(d, exeName);
 
-        if (File.Exists(path))
-        {
-            _runnerLocation = path;
-            return path;
-        }
+        //if (File.Exists(path))
+        //{
+        //    _runnerLocation = path;
+        //    return path;
+        //}
 
         throw new Exception("Cannot find 'BitMagic.TemplateEngine.Runner.exe', consider manually installing and adding evironment variable 'BitMagic.TemplateEngine.Runner' to the path.");
     }
@@ -820,12 +820,12 @@ public static partial class MacroAssembler
 
     private static async Task<ProcessResult> CompileFile(byte[] assemblyData, GlobalBuildState buildState, string sourceFilename, string @namespace, string className, bool isLibrary)
     {
-        string code = "";
+        var code = "";
 
         if (isLibrary)
             return new ProcessResult(new SourceResult(code, Array.Empty<ISourceResultMap>()), assemblyData, buildState, @namespace, className);
 
-        var exePath = await LocateRunner();
+        var exePath = LocateRunner();
         var sb = new StringBuilder();
 
         sb.Append("-l ");

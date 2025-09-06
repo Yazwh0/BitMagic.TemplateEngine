@@ -68,7 +68,8 @@ public static void Words(IEnumerable<ushort> words, int width = 16)
         cnt++;
         if (cnt == width)
         {
-            sb.AppendLine();
+            .word @(sb.ToString())
+            sb.Clear();
             cnt = 0;
             first = true;
         }
@@ -97,7 +98,8 @@ public static void Words(IEnumerable<short> words, int width = 16)
         cnt++;
         if (cnt == width)
         {
-            sb.AppendLine();
+            .word @(sb.ToString())
+            sb.Clear();
             cnt = 0;
             first = true;
         }
