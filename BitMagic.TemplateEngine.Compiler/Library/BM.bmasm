@@ -75,7 +75,9 @@ public static void Words(IEnumerable<ushort> words, int width = 16)
         }
     }
 
-    .word @(sb.ToString())
+    if (!first) {
+        .word @(sb.ToString())
+    }
 }
 
 public static void Words(IEnumerable<short> words, int width = 16)
@@ -105,7 +107,9 @@ public static void Words(IEnumerable<short> words, int width = 16)
         }
     }
 
-    .word @(sb.ToString()
+    if (!first) {
+        .word @(sb.ToString())
+    }
 }
 
 //    .byte $0C, $08              ; $080C - pointer to next line of BASIC code
