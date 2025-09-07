@@ -40,29 +40,27 @@ public static class CsasmEngine
             var line = l.Trim();
 
             var addBlank = false;
+            var doIndent = true;
 
-            if (line.StartsWith(".scope", StringComparison.InvariantCultureIgnoreCase) && !lastBlank)
+            if (line.StartsWith('.'))
             {
-                sb.AppendLine();
-                map.Add(new SourceResultMap(0, ""));
-            }
-
-            if (line.StartsWith(".proc", StringComparison.InvariantCultureIgnoreCase) && !lastBlank)
-            {
-                sb.AppendLine();
-                map.Add(new SourceResultMap(0, ""));
-            }
-
-            if (line.StartsWith(".endproc", StringComparison.InvariantCultureIgnoreCase))
-            {
-                addBlank = true;
-                indent--;
-            }
-
-            if (line.StartsWith(".endscope", StringComparison.InvariantCultureIgnoreCase))
-            {
-                addBlank = true;
-                indent--;
+                if ((line.StartsWith(".scope", StringComparison.InvariantCultureIgnoreCase) ||
+                    line.StartsWith(".proc", StringComparison.InvariantCultureIgnoreCase))
+                    && !lastBlank)
+                {
+                    sb.AppendLine();
+                    map.Add(new SourceResultMap(0, ""));
+                }
+                else if (line.StartsWith(".endproc", StringComparison.InvariantCultureIgnoreCase) ||
+                    line.StartsWith(".endscope", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    addBlank = true;
+                    indent--;
+                }
+                else
+                {
+                    doIndent = false;
+                }
             }
 
             if (label.IsMatch(line))
@@ -71,7 +69,7 @@ public static class CsasmEngine
                 map.Add(new SourceResultMap(0, ""));
             }
 
-            if (indent > 0)
+            if (indent > 0 && doIndent)
                 sb.Append('\t', indent);
 
             sb.AppendLine(line);
