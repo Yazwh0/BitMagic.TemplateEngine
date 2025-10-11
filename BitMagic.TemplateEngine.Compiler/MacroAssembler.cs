@@ -1,19 +1,21 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using BitMagic.Common;
+using BitMagic.Compiler.Files;
+using BitMagic.TemplateEngine.Objects;
+using BitMagic.TemplateEngine.X16;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Loader;
 using System.Text;
-using System.Threading.Tasks;
-using BitMagic.TemplateEngine.Objects;
-using BitMagic.Common;
 using System.Text.RegularExpressions;
-using System.Diagnostics;
-using Newtonsoft.Json;
-using BitMagic.Compiler.Files;
+using System.Threading.Tasks;
 
 namespace BitMagic.TemplateEngine.Compiler;
 
@@ -32,14 +34,18 @@ public static partial class MacroAssembler
 
         filename = filename.FixFilename();
 
-        return (await ProcessFile(engine, source, filename, options, logger, new GlobalBuildState(Path.GetFullPath(options.BinFolder), options), "  ", false)).Result;
+        var buildState = new GlobalBuildState(Path.GetFullPath(options.BinFolder), options);
+
+        return (await ProcessFile(engine, source, filename, options, logger, buildState)).Result;
     }
 
     private static async Task<(ProcessResult Result, bool RequireBuild)> ProcessFile(this ITemplateEngine engine, ISourceFile source, string filename, TemplateOptions options,
-        IEmulatorLogger logger, GlobalBuildState buildState, string indent, bool isLibrary)
+        IEmulatorLogger logger, GlobalBuildState buildState, string indent = "  ", bool isLibrary = false)
     {
+        // create or load the assembly to run
         var (assemblyData, @namespace, classname, requireBuild) = await GetAssembly(engine, source, filename, options, logger, buildState, indent, isLibrary);
-        return (await CompileFile(assemblyData, buildState, filename, @namespace, classname, isLibrary), requireBuild);
+
+        return (await CompileFileInProcess(assemblyData, buildState, filename, @namespace, classname, isLibrary), requireBuild);
     }
 
     private static async Task<(byte[] AssembleyData, string Namespace, string Classname, bool RequireBuild)> GetAssembly(this ITemplateEngine engine, ISourceFile source,
@@ -54,12 +60,15 @@ public static partial class MacroAssembler
         if (requireBuild)
         {
             logger.LogLine($"{indent}Building assembly '{Path.GetFileNameWithoutExtension(binaryFilename)}'");
+
             var templateDefinition = await CreateTemplate(engine, lines, filename, buildState, logger, @namespace, classname, isLibrary);
+
             assemblyData = CreateAssembly(templateDefinition, assemblyName, engine, logger, buildState, indent);
 
             if (Directory.Exists(options.BinFolder))
             {
                 await File.WriteAllBytesAsync(binaryFilename, assemblyData);
+
                 buildState.BinaryFilenames.Add(binaryFilename);
 
                 await File.WriteAllTextAsync(binaryFilename + ".deps", JsonConvert.SerializeObject(new DependantsFile(templateDefinition)));
@@ -353,9 +362,9 @@ public static partial class MacroAssembler
         }
         else
         {
-            output.Add($"public class {className} : BitMagic.TemplateEngine.Objects.ITemplateRunner");
+            output.Add($"public class {className} : BitMagic.TemplateEngine.Objects.TemplateRunner");
             output.Add("{");
-            output.Add("\tasync Task ITemplateRunner.Execute()");
+            output.Add("\tprotected override async Task Execute()");
             output.Add("\t{");
         }
 
@@ -550,7 +559,7 @@ public static partial class MacroAssembler
 
             output.AddRange(libraries);
 
-            output.Add("\tvoid ITemplateRunner.Initialise()");
+            output.Add("\tprotected override void Initialise()");
             output.Add("\t{");
             output.AddRange(initMethod);
             output.Add("\t}");
@@ -780,24 +789,6 @@ public static partial class MacroAssembler
             return path;
         }
 
-        // Not sure this does anything anymore?
-        //using var process = new Process();
-
-        //process.StartInfo.FileName = "dotnet";
-        //process.StartInfo.Arguments = "tool install --tool-path .\\TemplateEngine BitMagic.TemplateRunner";
-        //process.StartInfo.WorkingDirectory = d;
-
-        //process.Start();
-        //await process.WaitForExitAsync();
-
-        //path = Path.Combine(d, exeName);
-
-        //if (File.Exists(path))
-        //{
-        //    _runnerLocation = path;
-        //    return path;
-        //}
-
         throw new Exception("Cannot find 'BitMagic.TemplateEngine.Runner.exe', consider manually installing and adding evironment variable 'BitMagic.TemplateEngine.Runner' to the path.");
     }
 
@@ -817,6 +808,52 @@ public static partial class MacroAssembler
         throw new AssemblyFileNotFoundException(filename);
     }
 
+    private static async Task<ProcessResult> CompileFileInProcess(byte[] assemblyData, GlobalBuildState buildState, string sourceFilename, string @namespace, string className, bool isLibrary)
+    {
+        var code = "";
+
+        if (isLibrary)
+            return new ProcessResult(new SourceResult(code, Array.Empty<ISourceResultMap>()), assemblyData, buildState, @namespace, className);
+
+        using var ms = new MemoryStream(assemblyData);
+
+        ms.Seek(0, SeekOrigin.Begin);
+
+        // 3. Load and execute in isolation
+        var context = new CustomAssemblyLoadContext();
+        var assembly = context.LoadFromStream(ms);
+
+        foreach (var i in buildState.AllReferences)
+        {
+            var ims = new MemoryStream(i.CompiledData);
+            context.LoadFromStream(ims);
+        }
+
+        var sourcePath = Path.GetFullPath(Path.GetDirectoryName(sourceFilename));
+
+        var currentDirector = Directory.GetCurrentDirectory();
+
+        if (!string.IsNullOrWhiteSpace(sourcePath))
+            Directory.SetCurrentDirectory(sourcePath);
+
+        var type = assembly.GetType($"{@namespace}.{className}") ?? throw new Exception($"Could not instantiate type {@namespace}.{className}");
+        if (type.BaseType == null)
+            throw new Exception("Type doesn't have a base class");
+
+        var method = type.BaseType.GetMethod("Run") ?? throw new Exception("Base class doesn't have the method 'run'");
+        var instance = Activator.CreateInstance(type) ?? throw new Exception($"Could not create an instance of {type.Name}");
+        var rs = method.Invoke(instance, null) as Task<ISourceResult> ?? throw new Exception($"Result is null");
+
+        var result = CsasmEngine.Beautify(await rs);
+
+        context.Unload();
+        Directory.SetCurrentDirectory(currentDirector);
+
+        // create a local copy outside of the context.
+        var resultLocal = new SourceResult(result.Code, result.Map.Select(i => new SourceResultMap(i.Line, i.SourceFilename)).ToArray());
+
+        return new ProcessResult(resultLocal, assemblyData, buildState, @namespace, className);
+    }
 
     private static async Task<ProcessResult> CompileFile(byte[] assemblyData, GlobalBuildState buildState, string sourceFilename, string @namespace, string className, bool isLibrary)
     {
@@ -879,4 +916,11 @@ public static partial class MacroAssembler
 
         return new ProcessResult(result, assemblyData, buildState, @namespace, className);
     }
+}
+
+public class CustomAssemblyLoadContext : AssemblyLoadContext
+{
+    public CustomAssemblyLoadContext() : base(isCollectible: true) { }
+
+    protected override Assembly Load(AssemblyName assemblyName) => null;
 }

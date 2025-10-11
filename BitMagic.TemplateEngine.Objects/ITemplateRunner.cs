@@ -6,6 +6,24 @@ public interface ITemplateRunner
     void Initialise();
 }
 
+public abstract class TemplateRunner : ITemplateRunner
+{
+    protected abstract Task Execute();
+    protected abstract void Initialise();
+
+    public async Task<ISourceResult> Run()
+    {
+        Template.StartProject();
+        this.Initialise();
+        await this.Execute();
+        return Template.GenerateCode();
+    }
+
+    Task ITemplateRunner.Execute() => Execute();
+
+    void ITemplateRunner.Initialise() => Initialise();
+}
+
 public interface ISourceResult
 {
     string Code { get; }

@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Library\Initialisation.bmasm" >
+    <Content Include="Library\Initialisation.bmasm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
@@ -54,6 +54,7 @@
     <ProjectReference Include="..\..\BitMagic.X16Compiler\BitMagic.Compiler\BitMagic.Compiler.csproj" />
     <ProjectReference Include="..\..\BitMagic.X16Debugger\BitMagic.ImageHelper\BitMagic.ImageHelper.csproj" />
     <ProjectReference Include="..\BitMagic.TemplateEngine.Objects\BitMagic.TemplateEngine.Objects.csproj" />
+    <ProjectReference Include="..\BitMagic.TemplateEngine.X16\BitMagic.TemplateEngine.X16.csproj" />
     <ProjectReference Include="..\Bitmagic.TemplateEngine\BitMagic.TemplateEngine.csproj" />
   </ItemGroup>
   
