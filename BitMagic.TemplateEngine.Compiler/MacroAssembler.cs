@@ -21,7 +21,7 @@ namespace BitMagic.TemplateEngine.Compiler;
 
 public static partial class MacroAssembler
 {
-    public static async Task<ProcessResult> ProcessFile(this ITemplateEngine engine, ISourceFile source, string filename, TemplateOptions options, IEmulatorLogger logger)
+    public static async Task<ProcessResult> ProcessFile(this ITemplateEngine engine, SourceFileBase source, string filename, TemplateOptions options, IEmulatorLogger logger)
     {
         if (string.IsNullOrWhiteSpace(options.BinFolder))
             options.BinFolder = "bin";
@@ -36,7 +36,12 @@ public static partial class MacroAssembler
 
         var buildState = new GlobalBuildState(Path.GetFullPath(options.BinFolder), options);
 
-        return (await ProcessFile(engine, source, filename, options, logger, buildState)).Result;
+        var toReturn = await ProcessFile(engine, source, filename, options, logger, buildState);
+
+        buildState.SourceFiles.Add(toReturn.Result);
+        buildState.SourceFiles.Add(source);
+
+        return toReturn.Result;
     }
 
     private static async Task<(ProcessResult Result, bool RequireBuild)> ProcessFile(this ITemplateEngine engine, ISourceFile source, string filename, TemplateOptions options,
@@ -67,7 +72,7 @@ public static partial class MacroAssembler
 
             if (Directory.Exists(options.BinFolder))
             {
-                await File.WriteAllBytesAsync(binaryFilename, assemblyData);
+                FileCache.SetFileData(binaryFilename, assemblyData);
 
                 buildState.BinaryFilenames.Add(binaryFilename);
 
@@ -100,7 +105,7 @@ public static partial class MacroAssembler
                 }
             }
 
-            assemblyData = await File.ReadAllBytesAsync(binaryFilename);
+            assemblyData = FileCache.GetFileData(binaryFilename);
             buildState.BinaryFilenames.Add(binaryFilename);
         }
 
@@ -292,7 +297,7 @@ public static partial class MacroAssembler
 
             sourceFilename = sourceFilename.FixFilename();
 
-            var lastChange = File.GetLastWriteTimeUtc(sourceFilename);
+            var lastChange = FileCache.GetLastWriteTimeUtc(sourceFilename);
 
             if (lastChange > maxImportTouchDate)
                 maxImportTouchDate = lastChange;
@@ -309,8 +314,8 @@ public static partial class MacroAssembler
         if (!File.Exists(binaryFilename))
             return (true, binaryFilename);
 
-        var binaryWriteTime = File.GetLastWriteTimeUtc(binaryFilename);
-        var sourceWritetime = File.GetLastWriteTimeUtc(source.Path);
+        var binaryWriteTime = FileCache.GetLastWriteTimeUtc(binaryFilename);
+        var sourceWritetime = FileCache.GetLastWriteTimeUtc(source.Path);
 
         return (binaryWriteTime < sourceWritetime || binaryWriteTime < maxImportTouchDate, binaryFilename);
     }
