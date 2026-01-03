@@ -338,6 +338,7 @@ public static partial class MacroAssembler
 
         var output = new List<string>();
         var userHeader = new List<string>();
+        var initCode = new List<string>();
         var initMethod = new List<string>();
         var libraries = new List<string>();
         List<string> references = new();
@@ -389,6 +390,13 @@ public static partial class MacroAssembler
             if (line.StartsWith(';'))
             {
                 output.Add("//" + originalLine);
+                continue;
+            }
+
+            if (line.StartsWith('!'))
+            {
+                initCode.Add($".{line[1..]}");
+                output.Add("");
                 continue;
             }
 
@@ -566,6 +574,7 @@ public static partial class MacroAssembler
 
             output.Add("\tprotected override void Initialise()");
             output.Add("\t{");
+            output.AddRange(initCode);
             output.AddRange(initMethod);
             output.Add("\t}");
 
