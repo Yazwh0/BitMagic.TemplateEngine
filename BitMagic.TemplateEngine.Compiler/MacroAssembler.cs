@@ -12,6 +12,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.Loader;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -257,7 +258,7 @@ public static partial class MacroAssembler
 
             if (!match.Groups.TryGetValue("filename", out Group includeFilename))
                 continue;
-            
+
             if (string.IsNullOrWhiteSpace(includeFilename.Value))
                 continue;
 
@@ -329,7 +330,7 @@ public static partial class MacroAssembler
     /// <param name="contents">Input file contents</param>
     /// <returns>File that can be compiled</returns>
     /// <exception cref="ArgumentNullException"></exception>
-    private static async Task<PreProcessResult> CreateTemplate(ITemplateEngine engine, IReadOnlyList<string> lines, string filename, 
+    private static async Task<PreProcessResult> CreateTemplate(ITemplateEngine engine, IReadOnlyList<string> lines, string filename,
         GlobalBuildState buildState,
         IEmulatorLogger logger, string @namespace = "BitMagic.App", string className = "Template", bool isLibrary = false)
     {
@@ -466,7 +467,7 @@ public static partial class MacroAssembler
 
                 if (!File.Exists(fullPath))
                     throw new IncludeParseException($"Cannot find file '{fullPath}'");
-                
+
                 includedCode.Add(fullPath);
                 output.Add("");
                 continue;
@@ -534,7 +535,7 @@ public static partial class MacroAssembler
                 if (idx >= 0)
                 {
                     name = toParse[..idx].Trim();
-                    version = toParse[(idx+1)..].Trim();
+                    version = toParse[(idx + 1)..].Trim();
                 }
                 else
                     name = toParse;
@@ -547,7 +548,7 @@ public static partial class MacroAssembler
 
                 var files = await NugetManager.DownloadNugetPackage(buildState.BinaryFolder, name, version, logger);
 
-                foreach(var i in files)
+                foreach (var i in files)
                 {
                     if (i.EndsWith(".dll"))
                         assemblyFilenames.Add(i);
@@ -658,7 +659,7 @@ public static partial class MacroAssembler
         var syntaxTrees = new List<SyntaxTree>();
         syntaxTrees.Add(CSharpSyntaxTree.ParseText(toProcess));
 
-        foreach(var i in content.Includes)
+        foreach (var i in content.Includes)
         {
             syntaxTrees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(i)));
         }
@@ -686,7 +687,7 @@ public static partial class MacroAssembler
                 //,
         });
 
-//        var t = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES").ToString();
+        //        var t = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES").ToString();
 
         assemblies.AddRange(engine.Assemblies);
 
@@ -722,13 +723,27 @@ public static partial class MacroAssembler
 
 
         var builtMetadata = buildState.AllReferences.Select(i => MetadataReference.CreateFromImage(i.CompiledData));
+        var metaData = assemblies.Select(i => MetadataReference.CreateFromFile(i.Location)).Union(builtMetadata).ToList();
+
+        var forwarded = new List<Assembly>();
+
+        foreach (var i in syntaxTrees)
+        {
+            var usings = i.GetUsingNamespaces();
+
+            foreach (var x in ReferenceResolver.ResolveFromNamespaces(usings, "net6.0"))
+            {
+                if (!metaData.Contains(x))
+                    metaData.Add((PortableExecutableReference)x);
+            }
+        }
 
         var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary);
 
         CSharpCompilation compilation = CSharpCompilation.Create(
             contentAssemblyName,
             syntaxTrees,
-            assemblies.Select(i => MetadataReference.CreateFromFile(i.Location)).Union(builtMetadata),
+            metaData, //assemblies.Select(i => MetadataReference.CreateFromFile(i.Location)).Union(builtMetadata),
             options);
 
         MemoryStream memoryStream = new MemoryStream();
@@ -868,6 +883,35 @@ public static partial class MacroAssembler
 
         return new ProcessResult(resultLocal, assemblyData, buildState, @namespace, className);
     }
+
+    public static IEnumerable<Assembly> GetForwardedAssemblies(this Assembly assembly)
+    {
+        if (assembly == null)
+            throw new ArgumentNullException(nameof(assembly));
+
+        // Get all [TypeForwardedTo] attributes
+        var forwardedTypes = assembly
+            .GetCustomAttributes<TypeForwardedToAttribute>()
+            .Select(attr => attr.Destination)
+            .Where(t => t != null);
+
+        // Resolve the assemblies those types actually live in
+        var forwardedAssemblies = forwardedTypes
+            .Select(t => t.Assembly)
+            .Distinct();
+
+        return forwardedAssemblies;
+    }
+
+    public static IReadOnlyList<string> GetUsingNamespaces(this SyntaxTree tree)
+    {
+        var root = tree.GetCompilationUnitRoot();
+
+        return root.Usings
+            .Select(u => u.Name.ToString())
+            .ToList();
+    }
+
 
     private static async Task<ProcessResult> CompileFile(byte[] assemblyData, GlobalBuildState buildState, string sourceFilename, string @namespace, string className, bool isLibrary)
     {
