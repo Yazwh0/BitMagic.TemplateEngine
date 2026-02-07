@@ -123,10 +123,32 @@ public static void Words(IEnumerable<short> words, int width = 16)
 //                                ; ($0000 = end of program)
 public static void X16Header() => Bytes(new byte[] { 0x0c, 0x08, 0x0a, 0x00, 0x9e, 0x32, 0x30, 0x36, 0x31, 0x00, 0x00, 0x00 });
 
-public static void X16Header(string procname) 
+public static void X16Header(string startLabel, bool invalidHeader = false) 
 {
-    X16Header();
-    jmp @(procname)
+    .byte 0x0c, 0x08, 0x0a, 0x00, 0x9e
+    .byte @(startLabel) % 10000 / 1000 + $30
+    .byte @(startLabel) % 1000  / 100  + $30
+    .byte @(startLabel) % 100   / 10   + $30
+    .byte @(startLabel) % 10           + $30
+    .byte 0x00
+    if (!invalidHeader)
+    {
+    .byte 0x00, 0x00;
+    }
+}
+
+public static void X16Header(int startLabel, bool invalidHeader = false) 
+{
+    .byte 0x0c, 0x08, 0x0a, 0x00, 0x9e
+    .byte @(startLabel) % 10000 / 1000 + $30
+    .byte @(startLabel) % 1000  / 100  + $30
+    .byte @(startLabel) % 100   / 10   + $30
+    .byte @(startLabel) % 10           + $30
+    .byte 0x00
+    if (!invalidHeader)
+    {
+    .byte 0x00, 0x00;
+    }
 }
 
 public static void Petscii(string input, bool addNullTermination = true) => Bytes(StringToPetscii(input, addNullTermination));
