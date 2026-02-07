@@ -115,13 +115,13 @@ public static void Words(IEnumerable<short> words, int width = 16)
 //    .byte $0C, $08              ; $080C - pointer to next line of BASIC code
 //    .byte $0A, $00              ; 2-byte line number($000A = 10)
 //    .byte $9E                   ; SYS BASIC token
-//    .byte $20                   ; [space]
-//    .byte $32, $30, $36, $32    ; $32="2",$30="0",$36="6",$32="2"
+//    .byte $20                   ; [space] ; REMOVED
+//    .byte $32, $30, $36, $31    ; $32="2",$30="0",$36="6",$31="1"
 //    .byte $00                   ; End of Line
 //    .byte $00, $00              ; This is address $080C containing
 //                                ; 2-byte pointer to next line of BASIC code
 //                                ; ($0000 = end of program)
-public static void X16Header() => Bytes(new byte[] { 0x0c, 0x08, 0x0a, 0x00, 0x9e, 0x20, 0x32, 0x30, 0x36, 0x32, 0x00, 0x00, 0x00 });
+public static void X16Header() => Bytes(new byte[] { 0x0c, 0x08, 0x0a, 0x00, 0x9e, 0x32, 0x30, 0x36, 0x31, 0x00, 0x00, 0x00 });
 
 public static void X16Header(string procname) 
 {
