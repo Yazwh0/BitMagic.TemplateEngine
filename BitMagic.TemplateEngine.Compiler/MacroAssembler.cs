@@ -858,6 +858,11 @@ public static partial class MacroAssembler
             context.LoadFromStream(ims);
         }
 
+        foreach (var i in buildState.BinaryFilenames)
+        {
+            context.LoadFromStream(new FileStream(i, FileMode.Open, FileAccess.Read));
+        }
+
         var sourcePath = Path.GetFullPath(Path.GetDirectoryName(sourceFilename));
 
         var currentDirector = Directory.GetCurrentDirectory();

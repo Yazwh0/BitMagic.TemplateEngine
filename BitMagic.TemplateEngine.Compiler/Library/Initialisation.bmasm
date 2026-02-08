@@ -14,3 +14,8 @@ public static void Setup()
         i();
     }
 }
+
+public static void Clear()
+{
+    _methods.Clear();
+}
