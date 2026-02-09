@@ -860,7 +860,8 @@ public static partial class MacroAssembler
 
         foreach (var i in buildState.BinaryFilenames)
         {
-            context.LoadFromStream(new FileStream(i, FileMode.Open, FileAccess.Read));
+            if (!context.HasLoadedAssemblyFromFile(i))
+                context.LoadFromStream(new FileStream(i, FileMode.Open, FileAccess.Read));
         }
 
         var sourcePath = Path.GetFullPath(Path.GetDirectoryName(sourceFilename));
@@ -986,4 +987,12 @@ public class CustomAssemblyLoadContext : AssemblyLoadContext
     public CustomAssemblyLoadContext() : base(isCollectible: true) { }
 
     protected override Assembly Load(AssemblyName assemblyName) => null;
+
+    public bool HasLoadedAssemblyFromFile(string filePath)
+    {
+        var fileName = Path.GetFileNameWithoutExtension(filePath);
+
+        return Assemblies.Any(a =>
+            string.Equals(a.GetName().Name, fileName, StringComparison.OrdinalIgnoreCase));
+    }
 }
