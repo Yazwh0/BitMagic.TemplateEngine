@@ -4,7 +4,7 @@ Template Engine
 Used to generate code from a template, for example:
 
 ```c#
-using BigMagic.Macro;
+using BitMagic.Macro;
 using BitMagic.TemplateEngine.X16;
 
 var engine = CsasmEngine.CreateEngine();

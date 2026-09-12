@@ -2,7 +2,7 @@
   "profiles": {
     "BitMagic.TemplateEngine.Runner": {
       "commandName": "Project",
-      "commandLineArgs": "-l \"C:\\Documents\\Source\\Cc65LibTest\\Bin\\BitMagic.Helper.dll\" \"C:\\Documents\\Source\\Cc65LibTest\\Bin\\BitMagic.Cc65.Library.dll\" \"C:\\Documents\\Source\\Cc65LibTest\\Bin\\BitMagic.App.importtest.dll\" -n BitMagic.App.importtest -c Template -b \"C:\\Documents\\Source\\BitMagic\\BitMagic.X16Debugger\\X16D\\bin\\Debug\\net6.0\""
+      "commandLineArgs": "-l \"C:\\Documents\\Source\\Cc65LibTest\\Bin\\BitMagic.Helper.dll\" \"C:\\Documents\\Source\\Cc65LibTest\\Bin\\BitMagic.Cc65.Library.dll\" \"C:\\Documents\\Source\\Cc65LibTest\\Bin\\BitMagic.App.importtest.dll\" -n BitMagic.App.importtest -c Template -b \"C:\\Documents\\Source\\BitMagic\\BitMagic.X16Debugger\\X16D\\bin\\Debug\\net10.0\""
     }
   }
 }
