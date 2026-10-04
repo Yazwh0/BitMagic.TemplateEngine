@@ -315,13 +315,47 @@ public static partial class MacroAssembler
         if (!File.Exists(binaryFilename))
             return (true, binaryFilename);
 
+        if (!BuiltByThisEngine(binaryFilename))
+        {
+            logger.LogLine($"{indent}'{Path.GetFileNameWithoutExtension(binaryFilename)}' was built by a different version of BitMagic.");
+            return (true, binaryFilename);
+        }
+
         var binaryWriteTime = FileCache.GetLastWriteTimeUtc(binaryFilename);
         var sourceWritetime = FileCache.GetLastWriteTimeUtc(source.Path);
 
         return (binaryWriteTime < sourceWritetime || binaryWriteTime < maxImportTouchDate, binaryFilename);
     }
 
-    private static Regex _importRegex = new Regex(@"^\s*import (?<importName>[\w]+)\s*=\s*\""(?<filename>[\/\\\w\-.: ]+)\""\s*\;", RegexOptions.Compiled);
+    /// <summary>
+    /// Identifies the template engine that builds a binary: the code generator, the base classes the generated code
+    /// derives from, and the install folder (library files are compiled in by their full path). A cached binary built by
+    /// anything else, eg an older BitMagic or another X16D sharing the bin folder, can't be loaded and must be rebuilt.
+    /// </summary>
+    internal static readonly string BuildIdentity = string.Join("|",
+        typeof(MacroAssembler).Assembly.ManifestModule.ModuleVersionId,
+        typeof(TemplateRunner).Assembly.ManifestModule.ModuleVersionId,
+        Path.GetDirectoryName(typeof(MacroAssembler).Assembly.Location) ?? "");
+
+    private static bool BuiltByThisEngine(string binaryFilename)
+    {
+        var depsFilename = binaryFilename + ".deps";
+
+        if (!File.Exists(depsFilename))
+            return false;
+
+        try
+        {
+            var dependants = JsonConvert.DeserializeObject<DependantsFile>(File.ReadAllText(depsFilename));
+            return dependants?.BuiltBy == BuildIdentity;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static Regex _importRegex =new Regex(@"^\s*import (?<importName>[\w]+)\s*=\s*\""(?<filename>[\/\\\w\-.: ]+)\""\s*\;", RegexOptions.Compiled);
     private static Regex _includeRegex = new Regex(@"^\s*include \s*\""(?<filename>[\/\\\w\-.: ]+)\""\s*\;");
 
     /// <summary>

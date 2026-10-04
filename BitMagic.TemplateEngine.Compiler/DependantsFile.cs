@@ -11,10 +11,17 @@ internal class DependantsFile
     public List<string> References { get; set; }
     public List<string> AssemblyFilenames { get; set; }
 
+    /// <summary>
+    /// The template engine that built the binary, see MacroAssembler.BuildIdentity. Blank for binaries built before it
+    /// was recorded.
+    /// </summary>
+    public string BuiltBy { get; set; } = "";
+
     public DependantsFile(PreProcessResult result)
     {
         References = result.References;
         AssemblyFilenames = result.AssemblyFilenames;
+        BuiltBy = BuildIdentity;
     }
 
     public DependantsFile()
