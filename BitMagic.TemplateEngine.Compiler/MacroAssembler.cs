@@ -81,7 +81,7 @@ public static partial class MacroAssembler
             }
             else
             {
-                throw new Exception($"Output bin folder '{options.BinFolder}' does not exist.");
+                throw new TemplateBuildException($"Output bin folder '{options.BinFolder}' does not exist.");
             }
         }
         else
@@ -861,28 +861,54 @@ public static partial class MacroAssembler
         foreach (var i in buildState.BinaryFilenames)
         {
             if (!context.HasLoadedAssemblyFromFile(i))
-                context.LoadFromStream(new FileStream(i, FileMode.Open, FileAccess.Read));
+            {
+                // LoadFromStream copies the image, so close the file straight away rather than leave it locked.
+                using var fs = new FileStream(i, FileMode.Open, FileAccess.Read);
+                context.LoadFromStream(fs);
+            }
         }
 
         var sourcePath = Path.GetFullPath(Path.GetDirectoryName(sourceFilename));
 
         var currentDirector = Directory.GetCurrentDirectory();
 
-        if (!string.IsNullOrWhiteSpace(sourcePath))
-            Directory.SetCurrentDirectory(sourcePath);
+        ISourceResult result;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(sourcePath))
+                Directory.SetCurrentDirectory(sourcePath);
 
-        var type = assembly.GetType($"{@namespace}.{className}") ?? throw new Exception($"Could not instantiate type {@namespace}.{className}");
-        if (type.BaseType == null)
-            throw new Exception("Type doesn't have a base class");
+            var type = assembly.GetType($"{@namespace}.{className}") ?? throw new TemplateBuildException($"Could not find the template type '{@namespace}.{className}' for '{sourceFilename}'.");
+            if (type.BaseType == null)
+                throw new TemplateBuildException($"Template type '{type.Name}' for '{sourceFilename}' doesn't have a base class.");
 
-        var method = type.BaseType.GetMethod("Run") ?? throw new Exception("Base class doesn't have the method 'run'");
-        var instance = Activator.CreateInstance(type) ?? throw new Exception($"Could not create an instance of {type.Name}");
-        var rs = method.Invoke(instance, null) as Task<ISourceResult> ?? throw new Exception($"Result is null");
+            var method = type.BaseType.GetMethod("Run") ?? throw new TemplateBuildException($"Template base class for '{sourceFilename}' doesn't have the method 'Run'.");
+            var instance = Activator.CreateInstance(type) ?? throw new TemplateBuildException($"Could not create an instance of '{type.Name}' for '{sourceFilename}'.");
 
-        var result = CsasmEngine.Beautify(await rs);
+            Task<ISourceResult> rs;
+            try
+            {
+                rs = method.Invoke(instance, null) as Task<ISourceResult> ?? throw new TemplateBuildException($"Template '{sourceFilename}' did not return a result.");
+            }
+            catch (TargetInvocationException e) when (e.InnerException != null)
+            {
+                throw new TemplateRuntimeException(sourceFilename, e.InnerException);
+            }
 
-        context.Unload();
-        Directory.SetCurrentDirectory(currentDirector);
+            try
+            {
+                result = CsasmEngine.Beautify(await rs);
+            }
+            catch (Exception e) when (e is not TemplateException)
+            {
+                throw new TemplateRuntimeException(sourceFilename, e);
+            }
+        }
+        finally
+        {
+            context.Unload();
+            Directory.SetCurrentDirectory(currentDirector);
+        }
 
         // create a local copy outside of the context.
         var resultLocal = new SourceResult(result.Code, result.Map.Select(i => new SourceResultMap(i.Line, i.SourceFilename)).ToArray());

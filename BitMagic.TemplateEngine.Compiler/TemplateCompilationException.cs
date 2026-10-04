@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace BitMagic.TemplateEngine.Compiler;
@@ -10,6 +11,26 @@ public abstract class TemplateException : Exception
     public TemplateException(string message) : base(message)
     {
     }
+
+    public TemplateException(string message, Exception? inner) : base(message, inner)
+    {
+    }
+}
+
+/// <summary>
+/// The template engine couldn't run because of its environment or set up, eg the bin folder or .NET SDK is missing.
+/// </summary>
+public class TemplateBuildException(string message, Exception? inner = null) : TemplateException(message, inner)
+{
+}
+
+/// <summary>
+/// The user's template C# code threw while it was running.
+/// </summary>
+public class TemplateRuntimeException(string filename, Exception inner)
+    : TemplateException($"Template '{Path.GetFileName(filename)}' threw {inner.GetType().Name}: {inner.Message}", inner)
+{
+    public string Filename { get; } = filename;
 }
 
 public class TemplateCompilationException : TemplateException

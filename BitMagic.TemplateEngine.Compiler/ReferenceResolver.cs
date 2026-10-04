@@ -43,7 +43,7 @@ public static class ReferenceResolver
         var refDir = Path.Combine(refPackRoot, "ref", targetFramework);
 
         if (!Directory.Exists(refDir))
-            throw new DirectoryNotFoundException($"Reference assemblies not found: {refDir}");
+            throw new TemplateBuildException($"Reference assemblies not found in '{refDir}'. Is the matching .NET SDK installed?");
 
         return refDir;
     }
@@ -52,7 +52,7 @@ public static class ReferenceResolver
     {
         var parts = runtimeVersion.Split('.');
         if (parts.Length < 2)
-            throw new Exception($"Invalid runtime version: {runtimeVersion}");
+            throw new TemplateBuildException($"Invalid .NET runtime version '{runtimeVersion}'.");
 
         return $"{parts[0]}.{parts[1]}.0";
     }
@@ -85,7 +85,15 @@ public static class ReferenceResolver
             }
         };
 
-        process.Start();
+        try
+        {
+            process.Start();
+        }
+        catch (System.ComponentModel.Win32Exception e)
+        {
+            throw new TemplateBuildException("Cannot run 'dotnet --info'. Is the .NET SDK installed and on the PATH?", e);
+        }
+
         var output = process.StandardOutput.ReadToEnd();
         process.WaitForExit();
 
@@ -93,7 +101,7 @@ public static class ReferenceResolver
             .FirstOrDefault(l => l.TrimStart().StartsWith("Base Path:", StringComparison.OrdinalIgnoreCase));
 
         if (basePathLine == null)
-            throw new Exception("Unable to locate .NET SDK base path via `dotnet --info`.");
+            throw new TemplateBuildException("Unable to locate the .NET SDK base path via 'dotnet --info'. Is the .NET SDK installed?");
 
         _basePath = basePathLine.Split(':', 2)[1].Trim();
         return _basePath;

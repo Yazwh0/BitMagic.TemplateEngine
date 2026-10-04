@@ -93,7 +93,7 @@ internal static class NugetManager
         Assembly
             .GetEntryAssembly()?
             .GetCustomAttribute<TargetFrameworkAttribute>()?
-            .FrameworkName ?? throw new Exception("Cannot determine the current version of .net")
+            .FrameworkName ?? throw new TemplateBuildException("Cannot determine the current .NET version, so NuGet packages cannot be resolved.")
     );
 
     private sealed class NugetLogger : ILogger
