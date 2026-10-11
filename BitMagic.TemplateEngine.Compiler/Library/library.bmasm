@@ -4,6 +4,7 @@ library BitMagic.Views.Library;
 //
 //   file library            ; every line must be in a section
 //   file library code       ; or start in one
+//   library MyGame.Lz4;     ; optionally, the library's name, as for any library
 //
 //   section setup
 //       .segment zp
@@ -14,12 +15,22 @@ library BitMagic.Views.Library;
 //   .proc print
 //   ...
 //
-// Whatever nobody places goes in the default spots: setup before the main file's code,
-// code after it. 'place setup' and 'place code' move them.
+//   members                 ; C# for the library's class: fields, methods, classes
+//   public static int Count = 1;
+//
+// The file runs once the app has, so the C# in its sections sees what the app set, eg
+// through methods in its members. Whatever nobody places goes in the default spots: setup
+// before the main file's code, code after it. 'place setup' and 'place code' move them.
 
 public static IEnumerable<string> Keywords => new[] { "section" };
 
-public static void Process(ViewFile file)
+public static string Members => "members";
+
+// run the file once the app has run, so its sections see what the app set
+public static void Process(ViewFile file) =>
+    Build.OnEnd(() => AddSections(file));
+
+private static void AddSections(ViewFile file)
 {
     var sections = new Dictionary<string, List<CapturedItem>>();
     var current = file.Arguments;

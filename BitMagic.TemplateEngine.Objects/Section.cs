@@ -93,8 +93,17 @@ public sealed partial class Section
         if (_parts.Any(i => SameOwner(i.Owner, owner)))
             return;
 
+        NoteOwner(owner);
         _parts.Add(new SectionPart(owner, write));
     }
+
+    // The order libraries were initialised in, by owner. Parts are written in this order, so a view
+    // that adds its parts later, eg once the app has run, still keeps its library's place.
+    private static readonly Dictionary<string, int> _order = new(StringComparer.Ordinal);
+
+    internal static void NoteOwner(string owner) => _order.TryAdd(Normalise(owner), _order.Count);
+
+    private static int OrderOf(SectionPart part) => _order.TryGetValue(Normalise(part.Owner), out var order) ? order : int.MaxValue;
 
     /// <summary>
     /// Places every part not placed by owner, here.
@@ -172,7 +181,9 @@ public sealed partial class Section
                 {
                     // everything not claimed by a placement for its library
                     parts = section._parts.Where(i => !i.Placed &&
-                        !_placements.Any(p => p.Section == section && p.Owner != null && SameOwner(p.Owner, i.Owner))).ToList();
+                        !_placements.Any(p => p.Section == section && p.Owner != null && SameOwner(p.Owner, i.Owner)))
+                        .OrderBy(OrderOf)
+                        .ToList();
                 }
 
                 foreach (var part in parts)
@@ -212,6 +223,7 @@ public sealed partial class Section
     {
         _sections.Clear();
         _placements.Clear();
+        _order.Clear();
     }
 
     // owners are source paths; the same file must match whichever separator it was written with

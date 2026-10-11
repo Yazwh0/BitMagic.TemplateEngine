@@ -19,7 +19,11 @@ public static partial class MacroAssembler
         public string ViewFilename => Kind + ".bmasm";
     }
 
-    internal sealed record class ViewInfo(string ClassName, HashSet<string> Keywords);
+    /// <summary>
+    /// A view's class, the keywords it claims, and the keyword, if any, that starts a block of C#
+    /// members: lines that go in the file's class, rather than in its body.
+    /// </summary>
+    internal sealed record class ViewInfo(string ClassName, HashSet<string> Keywords, string? Members);
 
     private static readonly Regex _fileRegex = new(@"^\s*file\s+(?<kind>[A-Za-z_][\w\-]*)(?<arguments>[^;]*)(;.*)?$", RegexOptions.Compiled);
     private static readonly Regex _placeRegex = new(@"^\s*place\s+(?:(?<alias>[A-Za-z_]\w*)\.)?(?<name>[A-Za-z_]\w*)\s*(;.*)?$", RegexOptions.Compiled);
@@ -137,6 +141,20 @@ public static partial class MacroAssembler
     }
 
     /// <summary>
+    /// The line that starts the view's members block, eg 'members', with nothing else on it but a comment.
+    /// </summary>
+    private static bool IsMembersLine(string line, ViewInfo view)
+    {
+        if (view.Members == null)
+            return false;
+
+        var comment = line.IndexOf(';');
+        var text = (comment == -1 ? line : line[..comment]).Trim();
+
+        return text == view.Members;
+    }
+
+    /// <summary>
     /// The view's class and keywords. The view is built as an import before the file that uses it.
     /// </summary>
     private static ViewInfo GetViewInfo(FileHeader header, string filename, GlobalBuildState buildState)
@@ -162,8 +180,9 @@ public static partial class MacroAssembler
                 throw SourceError(filename, header.LineIndex, $"'{header.ViewFilename}' can't be used with 'file {header.Kind}': it has no 'public static void Process(ViewFile file)'.");
 
             var keywords = type.GetProperty("Keywords", BindingFlags.Public | BindingFlags.Static)?.GetValue(null) as IEnumerable<string>;
+            var members = type.GetProperty("Members", BindingFlags.Public | BindingFlags.Static)?.GetValue(null) as string;
 
-            info = new ViewInfo(className, new HashSet<string>(keywords ?? Array.Empty<string>(), StringComparer.Ordinal));
+            info = new ViewInfo(className, new HashSet<string>(keywords ?? Array.Empty<string>(), StringComparer.Ordinal), string.IsNullOrWhiteSpace(members) ? null : members.Trim());
         }
         finally
         {

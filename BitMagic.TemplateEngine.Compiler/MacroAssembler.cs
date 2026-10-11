@@ -119,35 +119,25 @@ public static partial class MacroAssembler
 
     private static (string Namespace, string Classname, string AssemblyName) GetAssemblyName(ISourceFile source, IReadOnlyList<string> lines)
     {
-        var line = lines.FirstOrDefault(i => i.StartsWith("library"));
-
         var @namespace = "BitMagic.App." + Path.GetFileNameWithoutExtension(source.Name);
         var className = "Template";
 
-        if (line != null)
+        // 'library Namespace.Class', with the ';' and a comment after it optional
+        var match = lines.Select(i => _libraryRegex.Match(i)).FirstOrDefault(i => i.Success);
+
+        if (match != null)
         {
-            if (line.EndsWith(';'))
-                line = line[..^1];
+            var name = match.Groups["name"].Value;
+            var idx = name.LastIndexOf('.');
 
-            var parts = line.Split(' ');
-            if (parts.Length > 1)
+            if (idx != -1)
             {
-
-                var trimmed = parts[1].Trim();
-                if (trimmed.StartsWith('"') && trimmed.EndsWith('"'))
-                    trimmed = trimmed[1..-1].Trim();
-
-                var idx = trimmed.LastIndexOf('.');
-
-                if (idx != -1)
-                {
-                    @namespace = trimmed[..idx];
-                    className = trimmed[(idx + 1)..];
-                }
-                else
-                {
-                    className = trimmed;
-                }
+                @namespace = name[..idx];
+                className = name[(idx + 1)..];
+            }
+            else
+            {
+                className = name;
             }
         }
 
@@ -340,6 +330,7 @@ public static partial class MacroAssembler
     }
 
     private static Regex _importRegex =new Regex(@"^\s*import (?<importName>[\w]+)\s*=\s*\""(?<filename>[\/\\\w\-.: ]+)\""\s*(;.*)?$", RegexOptions.Compiled);  // the ; is optional, and starts a comment
+    private static Regex _libraryRegex = new Regex(@"^\s*library\s+\""?(?<name>[\w.]+)\""?\s*(;.*)?$");  // the ; is optional, and starts a comment
     private static Regex _includeRegex = new Regex(@"^\s*include \s*\""(?<filename>[\/\\\w\-.: ]+)\""\s*(;.*)?$");  // the ; is optional, and starts a comment
 
     /// <summary>
@@ -402,6 +393,11 @@ public static partial class MacroAssembler
         var aliases = GetImportAliases(lines, buildState);
         var importClasses = new List<string>();
 
+        // The body is split where the view's members keyword starts C# for the class, and the next
+        // keyword line, eg 'section code', starts another part of it. The parts run in order.
+        var bodies = new List<string>();
+        var bodyOpen = false;
+
         for (var lineIndex = 0; lineIndex < lines.Count; lineIndex++)
         {
             var originalLine = lines[lineIndex];
@@ -411,6 +407,8 @@ public static partial class MacroAssembler
             if (header != null && lineIndex == header.LineIndex)
             {
                 output.Add("\tprivate static void __body() {");
+                bodies.Add("__body");
+                bodyOpen = true;
                 continue;
             }
             // emtpy line
@@ -442,15 +440,35 @@ public static partial class MacroAssembler
 
             if (view != null && lineIndex > header!.LineIndex)
             {
+                // C# members: what follows goes in the class, so the body part before it ends here
+                if (IsMembersLine(originalLine, view))
+                {
+                    output.Add(bodyOpen ? "\t}" : "");
+                    bodyOpen = false;
+                    continue;
+                }
+
                 var keywordLine = ViewKeywordLine(originalLine, lineIndex, filename, view);
                 if (keywordLine != null)
                 {
-                    output.Add(keywordLine);
+                    // after members, a keyword starts the next part of the body
+                    if (!bodyOpen)
+                    {
+                        var body = $"__body_{bodies.Count + 1}";
+                        bodies.Add(body);
+                        bodyOpen = true;
+                        output.Add($"\tprivate static void {body}() {{ {keywordLine}");
+                    }
+                    else
+                    {
+                        output.Add(keywordLine);
+                    }
+
                     continue;
                 }
             }
 
-            if (line.StartsWith("library"))
+            if (_libraryRegex.IsMatch(line))
             {
                 output.Add("");
                 continue;
@@ -617,10 +635,15 @@ public static partial class MacroAssembler
         {
             if (header != null)
             {
-                output.Add("\t}"); // closes __body
+                if (bodyOpen)
+                    output.Add("\t}"); // closes the last part of the body
+
+                // the body is its parts, in order
+                var body = bodies.Count == 1 ? bodies[0] : $"() => {{ {string.Join(" ", bodies.Select(i => i + "();"))} }}";
+
                 output.Add("\tpublic override void Initialise()");
                 output.Add("\t{");
-                output.Add($"\t\tglobal::{view!.ClassName}.Process(new {ObjectsNamespace}.ViewFile(Owner, {Verbatim(header.Arguments)}, __body));");
+                output.Add($"\t\tglobal::{view!.ClassName}.Process(new {ObjectsNamespace}.ViewFile(Owner, {Verbatim(header.Arguments)}, {body}));");
                 output.Add("\t}");
 
                 importClasses.Add(view.ClassName);
