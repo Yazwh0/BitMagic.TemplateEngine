@@ -1,0 +1,75 @@
+library BitMagic.Views.Library;
+
+// The view behind 'file library': a library written as plain bmasm, split into sections.
+//
+//   file library            ; every line must be in a section
+//   file library code       ; or start in one
+//
+//   section setup
+//       .segment zp
+//       .padvar byte count
+//       .endsegment
+//
+//   section code
+//   .proc print
+//   ...
+//
+// Whatever nobody places goes in the default spots: setup before the main file's code,
+// code after it. 'place setup' and 'place code' move them.
+
+public static IEnumerable<string> Keywords => new[] { "section" };
+
+public static void Process(ViewFile file)
+{
+    var sections = new Dictionary<string, List<CapturedItem>>();
+    var current = file.Arguments;
+
+    if (current != null && !Section.IsValidName(current))
+        throw new ViewException(file.Capture().FirstOrDefault() ?? new CapturedLine("", -1, file.Owner), $"'file library {current}': '{current}' isn't a valid section name.");
+
+    foreach (var item in file.Capture())
+    {
+        if (item is KeywordLine { Keyword: "section" } keyword)
+        {
+            if (!Section.IsValidName(keyword.Arguments))
+                throw new ViewException(keyword, $"'section {keyword.Arguments}' needs a section name, like 'section code'.");
+
+            current = keyword.Arguments;
+            continue;
+        }
+
+        if (current == null)
+        {
+            var text = item is CapturedLine line ? line.Text.Trim() : "place";
+            throw new ViewException(item, $"'{text}' is before the first 'section'. Every line in a 'file library' file must be in a section, or name a starting section: 'file library code'.");
+        }
+
+        if (!sections.TryGetValue(current, out var items))
+        {
+            items = new List<CapturedItem>();
+            sections.Add(current, items);
+        }
+
+        items.Add(item);
+    }
+
+    foreach (var (name, items) in sections)
+        Section.Get(name).Add(file.Owner, () => Template.Write(items));
+}
+
+// the default placement, for anything not placed explicitly
+public override void Initialise()
+{
+    Anchor start = null;
+
+    Build.OnStart(() => start = Template.Anchor());
+
+    Build.OnEnd(() =>
+    {
+        if (!Section.Get("setup").RestPlaced)
+            Section.Get("setup").PlaceAt(start);
+
+        if (!Section.Get("code").RestPlaced)
+            Section.Get("code").Place();
+    });
+}

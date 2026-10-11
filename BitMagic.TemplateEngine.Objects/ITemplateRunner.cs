@@ -14,8 +14,11 @@ public abstract class TemplateRunner : ITemplateRunner
     public async Task<ISourceResult> Run()
     {
         Template.StartProject();
-        this.Initialise();
+        this.Initialise();          // every library, which add their sections
+        Build.Start();
         await this.Execute();
+        Build.End();                // eg the default placement of setup and code
+        Section.WriteAll();
         return Template.GenerateCode();
     }
 

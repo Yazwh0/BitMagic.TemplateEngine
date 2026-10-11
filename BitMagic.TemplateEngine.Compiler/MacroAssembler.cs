@@ -35,6 +35,10 @@ public static partial class MacroAssembler
 
         filename = filename.FixFilename();
 
+        var header = GetFileHeader(source.Content);
+        if (header != null)
+            throw SourceError(filename, header.LineIndex, $"A 'file {header.Kind}' file can't be built on its own. Import it from the main file.");
+
         var buildState = new GlobalBuildState(Path.GetFullPath(options.BinFolder), options);
 
         var toReturn = await ProcessFile(engine, source, filename, options, logger, buildState);
@@ -154,73 +158,53 @@ public static partial class MacroAssembler
         string contentAssemblyName, TemplateOptions options, IEmulatorLogger logger, GlobalBuildState buildState, string indent)
     {
         bool newBuild = options.Rebuild;
-        // check if there are any imports which could need building
-        foreach (var import in lines.Where(i => i.Trim().StartsWith("import")))
+        // check if there are any imports which could need building, including the view a 'file <kind>' file uses
+        foreach (var importFilename in GetImportFilenames(lines))
         {
-            var regexResult = _importRegex.Matches(import);
-
-            if (regexResult.Count != 1)
-                continue;
-
-            var match = regexResult[0];
-
-            if (!match.Success)
-                continue;
-
-            if (!match.Groups.TryGetValue("importName", out Group importName))
-                continue;
-
-            if (!match.Groups.TryGetValue("filename", out Group importFilename))
-                continue;
-
-            if (string.IsNullOrWhiteSpace(importName.Value))
-                continue;
-
-            if (string.IsNullOrWhiteSpace(importFilename.Value))
-                continue;
-
-            // build
-            // create and register source file
-            // call GetAssembly
-
             // search for the file
             string sourceFilename = "";
             var searched = new List<string>();
 
             // check if its an absolute path               
-            if (File.Exists(importFilename.Value))
+            if (File.Exists(importFilename))
             {
-                sourceFilename = importFilename.Value;
+                sourceFilename = importFilename;
             }
             else
             {
-                searched.Add(Path.GetFullPath(importFilename.Value));
+                searched.Add(Path.GetFullPath(importFilename));
             }
 
             // check if its relative to the source file, if the source file is real
             if (string.IsNullOrWhiteSpace(sourceFilename) && !string.IsNullOrWhiteSpace(source.Path))
             {
-                var thisPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source.Path), importFilename.Value));
+                var thisPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source.Path), importFilename));
                 searched.Add(thisPath);
                 if (File.Exists(thisPath))
                     sourceFilename = thisPath;
             }
 
-            if (string.IsNullOrWhiteSpace(sourceFilename) && string.IsNullOrWhiteSpace(Path.GetDirectoryName(importFilename.Value)))
+            if (string.IsNullOrWhiteSpace(sourceFilename) && string.IsNullOrWhiteSpace(Path.GetDirectoryName(importFilename)))
             {
-                var thisPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "", "library", importFilename.Value));
+                var thisPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "", "library", importFilename));
                 searched.Add(thisPath);
                 if (File.Exists(thisPath))
+                {
                     sourceFilename = thisPath;
+
+                    // the shipped Initialisation.bmasm is a hand-written registry that sections replace
+                    if (string.Equals(Path.GetFileName(thisPath), "Initialisation.bmasm", StringComparison.OrdinalIgnoreCase) && buildState.Warned.Add("initialisation"))
+                        logger.LogLine($"{indent}WARNING: '{Path.GetFileName(source.Path)}' imports 'Initialisation.bmasm', which library sections replace. See https://bitmagic.org/templateengine/libraries");
+                }
             }
 
             if (string.IsNullOrWhiteSpace(sourceFilename))
-                throw new ImportNotFoundException(importFilename.Value, searched, source.Path);
+                throw new ImportNotFoundException(importFilename, searched, source.Path);
 
             sourceFilename = sourceFilename.FixFilename();
 
-            if (!buildState.ImportToFilename.ContainsKey(importFilename.Value))
-                buildState.ImportToFilename.Add(importFilename.Value, sourceFilename);
+            if (!buildState.ImportToFilename.ContainsKey(importFilename))
+                buildState.ImportToFilename.Add(importFilename, sourceFilename);
 
             if (!buildState.FilenameToClassname.ContainsKey(sourceFilename))
             {
@@ -355,8 +339,8 @@ public static partial class MacroAssembler
         }
     }
 
-    private static Regex _importRegex =new Regex(@"^\s*import (?<importName>[\w]+)\s*=\s*\""(?<filename>[\/\\\w\-.: ]+)\""\s*\;", RegexOptions.Compiled);
-    private static Regex _includeRegex = new Regex(@"^\s*include \s*\""(?<filename>[\/\\\w\-.: ]+)\""\s*\;");
+    private static Regex _importRegex =new Regex(@"^\s*import (?<importName>[\w]+)\s*=\s*\""(?<filename>[\/\\\w\-.: ]+)\""\s*(;.*)?$", RegexOptions.Compiled);  // the ; is optional, and starts a comment
+    private static Regex _includeRegex = new Regex(@"^\s*include \s*\""(?<filename>[\/\\\w\-.: ]+)\""\s*(;.*)?$");  // the ; is optional, and starts a comment
 
     /// <summary>
     /// Takes a source file and creates c# file that can be compiled
@@ -412,9 +396,23 @@ public static partial class MacroAssembler
         var startLine = output.Count - 1; // zero based
         var processingHeader = true;
 
-        foreach (var originalLine in lines)
+        // a 'file <kind>' file: its body becomes a method its view processes
+        var header = isLibrary ? GetFileHeader(lines) : null;
+        var view = header == null ? null : GetViewInfo(header, filename, buildState);
+        var aliases = GetImportAliases(lines, buildState);
+        var importClasses = new List<string>();
+
+        for (var lineIndex = 0; lineIndex < lines.Count; lineIndex++)
         {
+            var originalLine = lines[lineIndex];
             var line = originalLine.Trim();
+
+            // every line maps to one output line, so line numbers in errors and the source map don't move
+            if (header != null && lineIndex == header.LineIndex)
+            {
+                output.Add("\tprivate static void __body() {");
+                continue;
+            }
             // emtpy line
             if (string.IsNullOrWhiteSpace(line))
             {
@@ -433,6 +431,23 @@ public static partial class MacroAssembler
                 initCode.Add($".{line[1..]}");
                 output.Add("");
                 continue;
+            }
+
+            var placeLine = PlaceLine(originalLine, lineIndex, filename, aliases);
+            if (placeLine != null)
+            {
+                output.Add(placeLine);
+                continue;
+            }
+
+            if (view != null && lineIndex > header!.LineIndex)
+            {
+                var keywordLine = ViewKeywordLine(originalLine, lineIndex, filename, view);
+                if (keywordLine != null)
+                {
+                    output.Add(keywordLine);
+                    continue;
+                }
             }
 
             if (line.StartsWith("library"))
@@ -471,8 +486,9 @@ public static partial class MacroAssembler
                 var actualFile = buildState.ImportToFilename[importFilename.Value];
                 var importClassName = buildState.FilenameToClassname[actualFile];
                 userHeader.Add($"using {importName.Value} = {importClassName};");
-                initMethod.Add($"{importName.Value}.Initialise();");
-                libraries.Add($"private readonly {importClassName} {importName.Value} = new();");
+                initMethod.Add($"{ObjectsNamespace}.LibraryBase.InitialiseLibrary({importName.Value});");
+                libraries.Add($"private readonly {importClassName} {importName.Value} = {ObjectsNamespace}.LibraryBase.Instance<global::{importClassName}>();");
+                importClasses.Add(importClassName);
 
                 output.Add("");
                 continue;
@@ -599,6 +615,29 @@ public static partial class MacroAssembler
 
         if (isLibrary)
         {
+            if (header != null)
+            {
+                output.Add("\t}"); // closes __body
+                output.Add("\tpublic override void Initialise()");
+                output.Add("\t{");
+                output.Add($"\t\tglobal::{view!.ClassName}.Process(new {ObjectsNamespace}.ViewFile(Owner, {Verbatim(header.Arguments)}, __body));");
+                output.Add("\t}");
+
+                importClasses.Add(view.ClassName);
+            }
+
+            // a library initialises what it imports, first, so a library only another library imports
+            // still runs. Each library is only initialised once a build.
+            var initialise = importClasses.Distinct().ToList();
+            if (initialise.Count != 0)
+            {
+                output.Add("\tpublic override void InitialiseImports()");
+                output.Add("\t{");
+                foreach (var importClass in initialise)
+                    output.Add($"\t\t{ObjectsNamespace}.LibraryBase.InitialiseLibrary({ObjectsNamespace}.LibraryBase.Instance<global::{importClass}>());");
+                output.Add("\t}");
+            }
+
             output.Add("\t}"); // closes class
         }
         else
@@ -667,6 +706,10 @@ public static partial class MacroAssembler
         public Dictionary<string, string> FilenameToClassname { get; } = new();
         public Dictionary<string, string> ImportToFilename { get; } = new();
         public List<ProcessResult> References { get; } = new();
+        // view class -> its keywords, for 'file <kind>' files
+        public Dictionary<string, ViewInfo> Views { get; } = new();
+        // warnings already logged this build, so each is logged once
+        public HashSet<string> Warned { get; } = new();
         public IEnumerable<ProcessResult> AllReferences => References.Union(References.SelectMany(i => i.References));
         public List<string> BinaryFilenames { get; } = new();
         public List<SourceFileBase> SourceFiles { get; } = new();
@@ -919,10 +962,17 @@ public static partial class MacroAssembler
             var method = type.BaseType.GetMethod("Run") ?? throw new TemplateBuildException($"Template base class for '{sourceFilename}' doesn't have the method 'Run'.");
             var instance = Activator.CreateInstance(type) ?? throw new TemplateBuildException($"Could not create an instance of '{type.Name}' for '{sourceFilename}'.");
 
+            // each library's Owner is its source file
+            LibraryBase.SetOwners(buildState.FilenameToClassname.Select(i => new KeyValuePair<string, string>(i.Value, i.Key)));
+
             Task<ISourceResult> rs;
             try
             {
                 rs = method.Invoke(instance, null) as Task<ISourceResult> ?? throw new TemplateBuildException($"Template '{sourceFilename}' did not return a result.");
+            }
+            catch (TargetInvocationException e) when (e.InnerException is TemplateSourceException sourceException)
+            {
+                throw SourceError(sourceException, sourceFilename);
             }
             catch (TargetInvocationException e) when (e.InnerException != null)
             {
@@ -932,6 +982,10 @@ public static partial class MacroAssembler
             try
             {
                 result = CsasmEngine.Beautify(await rs);
+            }
+            catch (TemplateSourceException e)
+            {
+                throw SourceError(e, sourceFilename);
             }
             catch (Exception e) when (e is not TemplateException)
             {
