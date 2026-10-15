@@ -34,7 +34,7 @@ try
     var @namespace = result.Value.Namespace;
     var classname = result.Value.Classname;
 
-    var oh = AppDomain.CurrentDomain.CreateInstance($"{@namespace}.dll", $"{@namespace}.{classname}");
+    var oh = AppDomain.CurrentDomain.CreateInstance($"{@namespace}.{classname}.dll",$"{@namespace}.{classname}");
     if (oh == null)
     {
         Console.Error.WriteLine($"Create instance for {@namespace}.{classname} returned null.");

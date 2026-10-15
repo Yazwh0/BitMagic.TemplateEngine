@@ -64,24 +64,27 @@ public static partial class MacroAssembler
     }
 
     /// <summary>
-    /// The files to build before this one: its imports, and its view.
+    /// The files to build before this one: its imports, and its view. LineIndex is zero based.
     /// </summary>
-    private static IEnumerable<string> GetImportFilenames(IReadOnlyList<string> lines)
+    private static IEnumerable<(string Filename, int LineIndex)> GetImportFilenames(IReadOnlyList<string> lines)
     {
-        foreach (var line in lines.Where(i => i.Trim().StartsWith("import")))
+        for (var i = 0; i < lines.Count; i++)
         {
-            var match = _importRegex.Match(line);
+            if (!lines[i].Trim().StartsWith("import"))
+                continue;
+
+            var match = _importRegex.Match(lines[i]);
 
             if (!match.Success || string.IsNullOrWhiteSpace(match.Groups["importName"].Value) || string.IsNullOrWhiteSpace(match.Groups["filename"].Value))
                 continue;
 
-            yield return match.Groups["filename"].Value;
+            yield return (match.Groups["filename"].Value, i);
         }
 
         var header = GetFileHeader(lines);
 
         if (header != null)
-            yield return header.ViewFilename;
+            yield return (header.ViewFilename, header.LineIndex);
     }
 
     /// <summary>

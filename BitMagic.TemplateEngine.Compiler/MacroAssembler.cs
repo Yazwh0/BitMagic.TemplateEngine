@@ -41,6 +41,10 @@ public static partial class MacroAssembler
 
         var buildState = new GlobalBuildState(Path.GetFullPath(options.BinFolder), options);
 
+        // so a library that imports the main file is caught as circular
+        if (source.ActualFile)
+            buildState.Importing.Add(Path.GetFullPath(filename));
+
         var toReturn = await ProcessFile(engine, source, filename, options, logger, buildState);
 
         buildState.SourceFiles.Add(toReturn.Result);
@@ -64,7 +68,7 @@ public static partial class MacroAssembler
         var lines = source.Content;
 
         var (@namespace, classname, assemblyName) = GetAssemblyName(source, lines);
-        var (requireBuild, binaryFilename) = await RequiresBuild(engine, source, lines, assemblyName, options, logger, buildState, indent);
+        var (requireBuild, binaryFilename) = await RequiresBuild(engine, source, filename, lines, assemblyName, options, logger, buildState, indent);
 
         byte[] assemblyData;
         if (requireBuild)
@@ -141,15 +145,16 @@ public static partial class MacroAssembler
             }
         }
 
-        return (@namespace, className, @namespace + ".dll");
+        // named by the class, not just the namespace, so libraries that share a namespace don't overwrite each other
+        return (@namespace, className, $"{@namespace}.{className}.dll");
     }
 
-    private static async Task<(bool Rebuild, string BinaryFilename)> RequiresBuild(ITemplateEngine engine, ISourceFile source, IReadOnlyList<string> lines,
+    private static async Task<(bool Rebuild, string BinaryFilename)> RequiresBuild(ITemplateEngine engine, ISourceFile source, string filename, IReadOnlyList<string> lines,
         string contentAssemblyName, TemplateOptions options, IEmulatorLogger logger, GlobalBuildState buildState, string indent)
     {
         bool newBuild = options.Rebuild;
         // check if there are any imports which could need building, including the view a 'file <kind>' file uses
-        foreach (var importFilename in GetImportFilenames(lines))
+        foreach (var (importFilename, lineIndex) in GetImportFilenames(lines))
         {
             // search for the file
             string sourceFilename = "";
@@ -198,13 +203,33 @@ public static partial class MacroAssembler
 
             if (!buildState.FilenameToClassname.ContainsKey(sourceFilename))
             {
+                // a file is only in FilenameToClassname once its imports are built, so one still being built is circular
+                var fullPath = Path.GetFullPath(sourceFilename);
+
+                if (buildState.Importing.Contains(fullPath))
+                    throw SourceError(filename, lineIndex, $"Circular import: {ImportChain(buildState, fullPath)}. Files can't import each other, move what they share to a library they both import.");
+
+                // a backstop for a cycle the paths don't show, eg through a link
+                if (buildState.Importing.Count >= MaxImportDepth)
+                    throw SourceError(filename, lineIndex, $"Imports are nested more than {MaxImportDepth} deep, so are probably circular: {ImportChain(buildState, fullPath)}.");
+
                 var sourceFile = new BitMagicProjectFile(sourceFilename);
                 await sourceFile.Load();
 
-                var result = await ProcessFile(engine, sourceFile, sourceFile.Path, options, logger, buildState, "  " + indent, true);
-                var filename = (Path.GetFileNameWithoutExtension(sourceFile.Path) + ".generated.bmasm"); //.FixFilename();
+                (ProcessResult Result, bool RequireBuild) result;
+                buildState.Importing.Add(fullPath);
+                try
+                {
+                    result = await ProcessFile(engine, sourceFile, sourceFile.Path, options, logger, buildState, "  " + indent, true);
+                }
+                finally
+                {
+                    buildState.Importing.RemoveAt(buildState.Importing.Count - 1);
+                }
 
-                result.Result.SetName(filename);
+                var generatedFilename = (Path.GetFileNameWithoutExtension(sourceFile.Path) + ".generated.bmasm"); //.FixFilename();
+
+                result.Result.SetName(generatedFilename);
                 result.Result.SetParentAndMap(sourceFile);
                 buildState.FilenameToClassname.Add(sourceFilename, $"{result.Result.Namespace}.{result.Result.Classname}");
                 buildState.References.Add(result.Result);
@@ -300,6 +325,12 @@ public static partial class MacroAssembler
 
         return (binaryWriteTime < sourceWritetime || binaryWriteTime < maxImportTouchDate, binaryFilename);
     }
+
+    private const int MaxImportDepth = 64;
+
+    // eg 'main.bmasm -> a.bmasm -> b.bmasm -> a.bmasm'
+    private static string ImportChain(GlobalBuildState buildState, string next) =>
+        string.Join(" -> ", buildState.Importing.Append(next).Select(Path.GetFileName));
 
     /// <summary>
     /// Identifies the template engine that builds a binary: the code generator, the base classes the generated code
@@ -728,6 +759,8 @@ public static partial class MacroAssembler
         // Eg 'vera.bmasm' -> 'BitMagic.Vera.Template'
         public Dictionary<string, string> FilenameToClassname { get; } = new();
         public Dictionary<string, string> ImportToFilename { get; } = new();
+        // full paths of the files being built, the main file then each import down to the current one
+        public List<string> Importing { get; } = new();
         public List<ProcessResult> References { get; } = new();
         // view class -> its keywords, for 'file <kind>' files
         public Dictionary<string, ViewInfo> Views { get; } = new();
