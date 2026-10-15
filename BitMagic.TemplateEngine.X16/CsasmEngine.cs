@@ -22,15 +22,27 @@ public static class CsasmEngine
             //.WithAssembly(typeof(Helper).Assembly)
             .Build();
 
+    private static readonly Regex Label = new(@"^(\.[\w\-_]+\:)", RegexOptions.Compiled);
+
+    // Code and directives are indented by the scope and procs they're in, following how the compiler treats them:
+    // procs nest, a scope doesn't (a new .scope replaces the current one), and .scope, .segment and .endsegment
+    // all go back to the segment's default procedure. Labels stay at the left.
     public static ISourceResult Beautify(ISourceResult input)
     {
         var sb = new StringBuilder();
         var lines = input.Code.Split('\n');
-        var indent = 0;
-        var label = new Regex(@"^(\.[\w\-_]+\:)", RegexOptions.Compiled);
-        var lastBlank = false;
+        var inScope = false;
+        var procDepth = 0;
+        var lastBlank = true; // so nothing is inserted before the first line
         var map = new List<ISourceResultMap>();
         var idx = 0;
+
+        void AddBlank()
+        {
+            sb.AppendLine();
+            map.Add(new SourceResultMap(0, ""));
+            lastBlank = true;
+        }
 
         foreach (var l in lines)
         {
@@ -38,64 +50,60 @@ public static class CsasmEngine
                 continue;
 
             var line = l.Trim();
+            var isBlank = line.Length == 0;
 
-            var addBlank = false;
-            var doIndent = true;
-
-            if (line.StartsWith('.'))
+            // collapse runs of blank lines, dropping their map entries with them
+            if (isBlank && lastBlank)
             {
-                if ((line.StartsWith(".scope", StringComparison.InvariantCultureIgnoreCase) ||
-                    line.StartsWith(".proc", StringComparison.InvariantCultureIgnoreCase))
-                    && !lastBlank)
-                {
-                    sb.AppendLine();
-                    map.Add(new SourceResultMap(0, ""));
-                }
-                else if (line.StartsWith(".endproc", StringComparison.InvariantCultureIgnoreCase) ||
-                    line.StartsWith(".endscope", StringComparison.InvariantCultureIgnoreCase))
-                {
-                    addBlank = true;
-                    indent--;
-                }
-                else
-                {
-                    doIndent = false;
-                }
+                idx++;
+                continue;
             }
 
-            if (label.IsMatch(line))
+            var isProc = IsDirective(line, ".proc");
+            var isEndProc = IsDirective(line, ".endproc");
+            var isScope = IsDirective(line, ".scope");
+            var isEndScope = IsDirective(line, ".endscope");
+            var isLabel = Label.IsMatch(line);
+
+            if (isScope || isEndScope || IsDirective(line, ".segment") || IsDirective(line, ".endsegment"))
             {
-                sb.AppendLine();
-                map.Add(new SourceResultMap(0, ""));
+                inScope = false;
+                procDepth = 0;
             }
 
-            if (indent > 0 && doIndent)
+            if (isEndProc && procDepth > 0)
+                procDepth--;
+
+            if ((isProc || isScope || isLabel) && !lastBlank)
+                AddBlank();
+
+            var indent = (inScope ? 1 : 0) + procDepth;
+            if (!isLabel && !isBlank && indent > 0)
                 sb.Append('\t', indent);
 
             sb.AppendLine(line);
-            if (input.Map.Length > idx) //                //map.Add(input.Map[idx++]);
-                map.Add(input.Map[idx++]);
+            if (input.Map.Length > idx)
+                map.Add(input.Map[idx]);
+            idx++;
 
-            if (line.StartsWith(".proc", StringComparison.InvariantCultureIgnoreCase))
-                indent++;
+            lastBlank = isBlank;
 
-            if (line.StartsWith(".scope", StringComparison.InvariantCultureIgnoreCase))
-                indent++;
+            if (isScope)
+                inScope = true;
 
-            if (indent < 0)
-                indent = 0;
+            if (isProc)
+                procDepth++;
 
-            lastBlank = string.IsNullOrWhiteSpace(line);
-
-            if (addBlank)
-            {
-                sb.AppendLine();
-                map.Add(new SourceResultMap(0, ""));
-                lastBlank = true;
-            }
+            if (isEndProc || isEndScope)
+                AddBlank();
         }
         map.Add(new SourceResultMap(0, ""));
 
         return new SourceResult(sb.ToString(), map.ToArray());
     }
+
+    // The line is the directive, rather than one that starts with the same letters. eg .proc, but not .process_data: or .scopedelimiter
+    private static bool IsDirective(string line, string directive) =>
+        line.StartsWith(directive, StringComparison.InvariantCultureIgnoreCase) &&
+        (line.Length == directive.Length || char.IsWhiteSpace(line[directive.Length]) || line[directive.Length] == ';');
 }
