@@ -198,8 +198,7 @@ public static partial class MacroAssembler
 
             sourceFilename = sourceFilename.FixFilename();
 
-            if (!buildState.ImportToFilename.ContainsKey(importFilename))
-                buildState.ImportToFilename.Add(importFilename, sourceFilename);
+            buildState.ImportToFilename[(filename, importFilename)] = sourceFilename;
 
             if (!buildState.FilenameToClassname.ContainsKey(sourceFilename))
             {
@@ -421,7 +420,7 @@ public static partial class MacroAssembler
         // a 'file <kind>' file: its body becomes a method its view processes
         var header = isLibrary ? GetFileHeader(lines) : null;
         var view = header == null ? null : GetViewInfo(header, filename, buildState);
-        var aliases = GetImportAliases(lines, buildState);
+        var aliases = GetImportAliases(lines, filename, buildState);
         var importClasses = new List<string>();
 
         // The body is split where the view's members keyword starts C# for the class, and the next
@@ -529,10 +528,9 @@ public static partial class MacroAssembler
                 if (string.IsNullOrWhiteSpace(importFilename.Value))
                     throw new ImportParseException($"Incorrect syntax in '{line}' blank filename");
 
-                if (!buildState.ImportToFilename.ContainsKey(importFilename.Value))
+                if (!buildState.ImportToFilename.TryGetValue((filename, importFilename.Value), out var actualFile))
                     throw new ImportParseException($"File '{importFilename.Value}' does not appear to have been built.");
 
-                var actualFile = buildState.ImportToFilename[importFilename.Value];
                 var importClassName = buildState.FilenameToClassname[actualFile];
                 userHeader.Add($"using {importName.Value} = {importClassName};");
                 initMethod.Add($"{ObjectsNamespace}.LibraryBase.InitialiseLibrary({importName.Value});");
@@ -758,7 +756,9 @@ public static partial class MacroAssembler
     {
         // Eg 'vera.bmasm' -> 'BitMagic.Vera.Template'
         public Dictionary<string, string> FilenameToClassname { get; } = new();
-        public Dictionary<string, string> ImportToFilename { get; } = new();
+        // (importing file, import as written) -> the file it resolved to. The same import text can be a different
+        // file from a different folder, so it's keyed by the importer too.
+        public Dictionary<(string Importer, string Import), string> ImportToFilename { get; } = new();
         // full paths of the files being built, the main file then each import down to the current one
         public List<string> Importing { get; } = new();
         public List<ProcessResult> References { get; } = new();

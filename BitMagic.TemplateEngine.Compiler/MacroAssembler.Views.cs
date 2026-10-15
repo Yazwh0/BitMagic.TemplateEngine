@@ -90,7 +90,7 @@ public static partial class MacroAssembler
     /// <summary>
     /// Import alias -> the imported file's source path, for 'place Alias.section'.
     /// </summary>
-    private static Dictionary<string, string> GetImportAliases(IReadOnlyList<string> lines, GlobalBuildState buildState)
+    private static Dictionary<string, string> GetImportAliases(IReadOnlyList<string> lines, string filename, GlobalBuildState buildState)
     {
         var aliases = new Dictionary<string, string>(StringComparer.Ordinal);
 
@@ -98,7 +98,7 @@ public static partial class MacroAssembler
         {
             var match = _importRegex.Match(line);
 
-            if (match.Success && buildState.ImportToFilename.TryGetValue(match.Groups["filename"].Value, out var path))
+            if (match.Success && buildState.ImportToFilename.TryGetValue((filename, match.Groups["filename"].Value), out var path))
                 aliases[match.Groups["importName"].Value] = path;
         }
 
@@ -162,7 +162,7 @@ public static partial class MacroAssembler
     /// </summary>
     private static ViewInfo GetViewInfo(FileHeader header, string filename, GlobalBuildState buildState)
     {
-        if (!buildState.ImportToFilename.TryGetValue(header.ViewFilename, out var viewPath) ||
+        if (!buildState.ImportToFilename.TryGetValue((filename, header.ViewFilename), out var viewPath) ||
             !buildState.FilenameToClassname.TryGetValue(viewPath, out var className))
             throw SourceError(filename, header.LineIndex, $"The view '{header.ViewFilename}' for 'file {header.Kind}' hasn't been built.");
 
