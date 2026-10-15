@@ -968,7 +968,8 @@ public static partial class MacroAssembler
             }
         }
 
-        var sourcePath = Path.GetFullPath(Path.GetDirectoryName(sourceFilename));
+        // a bare filename is in the current folder
+        var sourcePath = Path.GetFullPath(Path.GetDirectoryName(sourceFilename) is { Length: > 0 } directory ? directory : ".");
 
         var currentDirector = Directory.GetCurrentDirectory();
 
@@ -1073,7 +1074,8 @@ public static partial class MacroAssembler
             sb.Append($"\"{i}\" ");
         }
 
-        var sourcePath = Path.GetFullPath(Path.GetDirectoryName(sourceFilename));
+        // a bare filename is in the current folder
+        var sourcePath = Path.GetFullPath(Path.GetDirectoryName(sourceFilename) is { Length: > 0 } directory ? directory : ".");
 
         sb.Append("-n ");
         sb.Append(@namespace);
