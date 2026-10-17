@@ -43,7 +43,7 @@ public static partial class MacroAssembler
 
         // so a library that imports the main file is caught as circular
         if (source.ActualFile)
-            buildState.Importing.Add(Path.GetFullPath(filename));
+            buildState.Importing.Add(Path.GetFullPath(filename).FixFilename());
 
         var toReturn = await ProcessFile(engine, source, filename, options, logger, buildState);
 
@@ -196,27 +196,27 @@ public static partial class MacroAssembler
             if (string.IsNullOrWhiteSpace(sourceFilename))
                 throw new ImportNotFoundException(importFilename, searched, source.Path);
 
-            sourceFilename = sourceFilename.FixFilename();
+            // one absolute form, so a file reached by different relative paths is the same file. FixFilename also fixes
+            // the case on Windows; on Linux the case is significant, so it's left alone.
+            sourceFilename = Path.GetFullPath(sourceFilename).FixFilename();
 
             buildState.ImportToFilename[(filename, importFilename)] = sourceFilename;
 
             if (!buildState.FilenameToClassname.ContainsKey(sourceFilename))
             {
                 // a file is only in FilenameToClassname once its imports are built, so one still being built is circular
-                var fullPath = Path.GetFullPath(sourceFilename);
-
-                if (buildState.Importing.Contains(fullPath))
-                    throw SourceError(filename, lineIndex, $"Circular import: {ImportChain(buildState, fullPath)}. Files can't import each other, move what they share to a library they both import.");
+                if (buildState.Importing.Contains(sourceFilename))
+                    throw SourceError(filename, lineIndex, $"Circular import: {ImportChain(buildState, sourceFilename)}. Files can't import each other, move what they share to a library they both import.");
 
                 // a backstop for a cycle the paths don't show, eg through a link
                 if (buildState.Importing.Count >= MaxImportDepth)
-                    throw SourceError(filename, lineIndex, $"Imports are nested more than {MaxImportDepth} deep, so are probably circular: {ImportChain(buildState, fullPath)}.");
+                    throw SourceError(filename, lineIndex, $"Imports are nested more than {MaxImportDepth} deep, so are probably circular: {ImportChain(buildState, sourceFilename)}.");
 
                 var sourceFile = new BitMagicProjectFile(sourceFilename);
                 await sourceFile.Load();
 
                 (ProcessResult Result, bool RequireBuild) result;
-                buildState.Importing.Add(fullPath);
+                buildState.Importing.Add(sourceFilename);
                 try
                 {
                     result = await ProcessFile(engine, sourceFile, sourceFile.Path, options, logger, buildState, "  " + indent, true);
@@ -456,7 +456,9 @@ public static partial class MacroAssembler
 
             if (line.StartsWith('!'))
             {
-                initCode.Add($".{line[1..]}");
+                // '!segment' only defines the segment, so the current segment doesn't change
+                var directive = Regex.IsMatch(line, @"^!segment(\s|;|$)", RegexOptions.IgnoreCase) ? ".segmentdefine" + line[8..] : $".{line[1..]}";
+                initCode.Add(directive);
                 output.Add("");
                 continue;
             }
