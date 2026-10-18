@@ -70,7 +70,14 @@ public static class CsasmEngine
 
             var isSegment = IsDirective(line, ".segment") || IsDirective(line, ".endsegment");
 
-            if (isEndScope && nested.Count > 0)
+            if (isSegment)
+            {
+                nested.Clear();
+                baseIndent = 0;
+                inScope = false;
+                procDepth = 0;
+            }
+            else if (isEndScope && nested.Count > 0)
             {
                 // back to the proc the scope was opened in
                 (inScope, procDepth, baseIndent) = nested.Pop();
@@ -83,10 +90,9 @@ public static class CsasmEngine
                 inScope = false;
                 procDepth = 0;
             }
-            else if (isScope || isEndScope || isSegment)
+            else if (isScope || isEndScope)
             {
-                nested.Clear();
-                baseIndent = 0;
+                // replaces the current scope, inside a nested scope this stays within the proc it was opened in
                 inScope = false;
                 procDepth = 0;
             }
