@@ -59,7 +59,7 @@ public static partial class MacroAssembler
         // create or load the assembly to run
         var (assemblyData, @namespace, classname, requireBuild) = await GetAssembly(engine, source, filename, options, logger, buildState, indent, isLibrary);
 
-        return (await CompileFileInProcess(assemblyData, buildState, filename, @namespace, classname, isLibrary), requireBuild);
+        return (await CompileFileInProcess(assemblyData, buildState, filename, @namespace, classname, isLibrary, logger, indent), requireBuild);
     }
 
     private static async Task<(byte[] AssembleyData, string Namespace, string Classname, bool RequireBuild)> GetAssembly(this ITemplateEngine engine, ISourceFile source,
@@ -972,7 +972,8 @@ public static partial class MacroAssembler
         throw new AssemblyFileNotFoundException(filename);
     }
 
-    private static async Task<ProcessResult> CompileFileInProcess(byte[] assemblyData, GlobalBuildState buildState, string sourceFilename, string @namespace, string className, bool isLibrary)
+    private static async Task<ProcessResult> CompileFileInProcess(byte[] assemblyData, GlobalBuildState buildState, string sourceFilename, string @namespace, string className, bool isLibrary,
+        IEmulatorLogger logger, string indent)
     {
         var code = "";
 
@@ -1008,9 +1009,19 @@ public static partial class MacroAssembler
 
         var currentDirector = Directory.GetCurrentDirectory();
 
+        // the template's Console output goes to the build log, Console.Error as errors. The debugger
+        // talks DAP over the raw stdout stream, not Console.Out, so this doesn't touch the protocol.
+        var consoleOut = Console.Out;
+        var consoleError = Console.Error;
+        using var templateOut = new LoggerTextWriter(logger.LogLine, indent, consoleOut);
+        using var templateError = new LoggerTextWriter(logger.LogError, indent, consoleError);
+
         ISourceResult result;
         try
         {
+            Console.SetOut(templateOut);
+            Console.SetError(templateError);
+
             if (!string.IsNullOrWhiteSpace(sourcePath))
                 Directory.SetCurrentDirectory(sourcePath);
 
@@ -1053,6 +1064,10 @@ public static partial class MacroAssembler
         }
         finally
         {
+            Console.SetOut(consoleOut);
+            Console.SetError(consoleError);
+            templateOut.Flush();
+            templateError.Flush();
             context.Unload();
             Directory.SetCurrentDirectory(currentDirector);
         }
