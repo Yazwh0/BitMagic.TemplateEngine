@@ -606,7 +606,10 @@ public static partial class MacroAssembler
                 name = name.Trim();
 
                 if (name == "\"\"" || string.IsNullOrWhiteSpace(name))
+                {
+                    output.Add(""); // keep the line, so later line numbers don't move
                     continue;
+                }
 
                 if (name.StartsWith('"') && name.EndsWith('"'))
                     name = name.Substring(1, name.Length - 2);
