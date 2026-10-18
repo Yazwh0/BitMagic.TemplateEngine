@@ -26,13 +26,16 @@ public static class CsasmEngine
 
     // Code and directives are indented by the scope and procs they're in, following how the compiler treats them:
     // procs nest, a scope doesn't (a new .scope replaces the current one), and .scope, .segment and .endsegment
-    // all go back to the segment's default procedure. Labels stay at the left.
+    // all go back to the segment's default procedure. The exception is a .scope opened inside a proc, which is
+    // indented within it and returns to it at its .endscope. Labels stay at the left.
     public static ISourceResult Beautify(ISourceResult input)
     {
         var sb = new StringBuilder();
         var lines = input.Code.Split('\n');
         var inScope = false;
         var procDepth = 0;
+        var baseIndent = 0; // indent of the proc a nested scope was opened in
+        var nested = new Stack<(bool inScope, int procDepth, int baseIndent)>();
         var lastBlank = true; // so nothing is inserted before the first line
         var map = new List<ISourceResultMap>();
         var idx = 0;
@@ -65,8 +68,25 @@ public static class CsasmEngine
             var isEndScope = IsDirective(line, ".endscope");
             var isLabel = Label.IsMatch(line);
 
-            if (isScope || isEndScope || IsDirective(line, ".segment") || IsDirective(line, ".endsegment"))
+            var isSegment = IsDirective(line, ".segment") || IsDirective(line, ".endsegment");
+
+            if (isEndScope && nested.Count > 0)
             {
+                // back to the proc the scope was opened in
+                (inScope, procDepth, baseIndent) = nested.Pop();
+            }
+            else if (isScope && procDepth > 0)
+            {
+                // a scope opened inside a proc nests, rather than replacing the current one
+                nested.Push((inScope, procDepth, baseIndent));
+                baseIndent += (inScope ? 1 : 0) + procDepth;
+                inScope = false;
+                procDepth = 0;
+            }
+            else if (isScope || isEndScope || isSegment)
+            {
+                nested.Clear();
+                baseIndent = 0;
                 inScope = false;
                 procDepth = 0;
             }
@@ -77,7 +97,7 @@ public static class CsasmEngine
             if ((isProc || isScope || isLabel) && !lastBlank)
                 AddBlank();
 
-            var indent = (inScope ? 1 : 0) + procDepth;
+            var indent = baseIndent + (inScope ? 1 : 0) + procDepth;
             if (!isLabel && !isBlank && indent > 0)
                 sb.Append('\t', indent);
 
