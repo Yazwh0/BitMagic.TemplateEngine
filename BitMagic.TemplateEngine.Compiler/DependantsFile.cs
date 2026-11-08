@@ -17,11 +17,18 @@ internal class DependantsFile
     /// </summary>
     public string BuiltBy { get; set; } = "";
 
-    public DependantsFile(PreProcessResult result)
+    /// <summary>
+    /// Full path of the source file the binary was built from, as another file with the same name builds to the same
+    /// binary. Blank for binaries built before it was recorded.
+    /// </summary>
+    public string Source { get; set; } = "";
+
+    public DependantsFile(PreProcessResult result, string source)
     {
         References = result.References;
         AssemblyFilenames = result.AssemblyFilenames;
         BuiltBy = BuildIdentity;
+        Source = source;
     }
 
     public DependantsFile()

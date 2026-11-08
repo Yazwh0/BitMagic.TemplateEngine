@@ -68,6 +68,17 @@ public static partial class MacroAssembler
         var lines = source.Content;
 
         var (@namespace, classname, assemblyName) = GetAssemblyName(source, lines);
+
+        // before anything is built or loaded, as a clashing name would load the other file's cached binary
+        var sourcePath = Path.GetFullPath(filename).FixFilename();
+        var clash = buildState.Names.Register(sourcePath, $"{@namespace}.{classname}");
+        if (clash != null)
+        {
+            // at the 'library' line if there is one, as that's what sets the name
+            var libraryLine = lines.ToList().FindIndex(i => _libraryRegex.IsMatch(i));
+            throw SourceError(filename, libraryLine, clash);
+        }
+
         var (requireBuild, binaryFilename) = await RequiresBuild(engine, source, filename, lines, assemblyName, options, logger, buildState, indent);
 
         byte[] assemblyData;
@@ -85,7 +96,7 @@ public static partial class MacroAssembler
 
                 buildState.BinaryFilenames.Add(binaryFilename);
 
-                await File.WriteAllTextAsync(binaryFilename + ".deps", JsonConvert.SerializeObject(new DependantsFile(templateDefinition)));
+                await File.WriteAllTextAsync(binaryFilename + ".deps", JsonConvert.SerializeObject(new DependantsFile(templateDefinition, sourcePath)));
             }
             else
             {
@@ -313,9 +324,18 @@ public static partial class MacroAssembler
         if (!File.Exists(binaryFilename))
             return (true, binaryFilename);
 
-        if (!BuiltByThisEngine(binaryFilename))
+        var dependants = ReadDependants(binaryFilename);
+
+        if (dependants?.BuiltBy != BuildIdentity)
         {
             logger.LogLine($"{indent}'{Path.GetFileNameWithoutExtension(binaryFilename)}' was built by a different version of BitMagic.");
+            return (true, binaryFilename);
+        }
+
+        // eg the file has moved, or the bin folder is shared with another project that has a file with this name
+        if (!BuildNames.SamePath(dependants.Source, Path.GetFullPath(filename).FixFilename()))
+        {
+            logger.LogLine($"{indent}'{Path.GetFileNameWithoutExtension(binaryFilename)}' was built from a different file.");
             return (true, binaryFilename);
         }
 
@@ -341,21 +361,21 @@ public static partial class MacroAssembler
         typeof(TemplateRunner).Assembly.ManifestModule.ModuleVersionId,
         Path.GetDirectoryName(typeof(MacroAssembler).Assembly.Location) ?? "");
 
-    private static bool BuiltByThisEngine(string binaryFilename)
+    // null if there isn't one, or it can't be read
+    private static DependantsFile? ReadDependants(string binaryFilename)
     {
         var depsFilename = binaryFilename + ".deps";
 
         if (!File.Exists(depsFilename))
-            return false;
+            return null;
 
         try
         {
-            var dependants = JsonConvert.DeserializeObject<DependantsFile>(File.ReadAllText(depsFilename));
-            return dependants?.BuiltBy == BuildIdentity;
+            return JsonConvert.DeserializeObject<DependantsFile>(File.ReadAllText(depsFilename));
         }
         catch (JsonException)
         {
-            return false;
+            return null;
         }
     }
 
@@ -776,10 +796,12 @@ public static partial class MacroAssembler
         public List<SourceFileBase> SourceFiles { get; } = new();
         public string BinaryFolder { get; }
         public TemplateOptions Options { get; }
+        public BuildNames Names { get; }
         public GlobalBuildState(string binaryFolder, TemplateOptions options)
         {
             BinaryFolder = binaryFolder;
             Options = options;
+            Names = options.Names ?? new BuildNames(options.BasePath);
         }
     }
 
